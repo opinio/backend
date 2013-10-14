@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Find your perfect shoe</title>
+		<meta charset="utf-8"/>
+	</head>
+	
+	<body>
+		<table>
+		{% for row in tableRows %}
+		<tr>
+			{% for column in row %}
+			<td>{{column}}</td>	
+			{% endfor %}
+		</tr>
+		{% endfor %}
+		</table>
+	</body>
+
+
+	<script type="text/javascript">
+
+	</script>
+
+</html>

@@ -1,0 +1,36 @@
+application: sfbackend
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: false
+
+libraries:                                                                      
+- name: jinja2                                                                  
+  version: latest                                                               
+- name: markupsafe                                                              
+  version: latest  
+
+## Uncomment to enable App Engine appstats
+# builtins:
+# - appstats: on
+
+handlers:
+
+- url: /.*favicon.ico
+  static_files: img/favicon.ico
+  upload: img/favicon.ico
+  expiration: 0
+
+- url: /data
+  static_dir: data 
+  application_readable: true
+
+- url: /html
+  static_dir: html
+
+- url: /admin/*
+  script: main.py
+  login: admin
+
+- url: /.*
+  script: main.py

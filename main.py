@@ -20,10 +20,11 @@ config['webapp2_extras.jinja2'] = {
         'jinja2.ext.autoescape']}
 }
 
+
+#This could be used to make urllib2 work with urlfetch with timeout limits in the future
 #old_fetch = urlfetch.fetch
 #def new_fetch(url, payload=None, method="GET", headers={},allow_truncated=False, follow_redirects=True,deadline=60.0, *args, **kwargs):
 #	return old_fetch(url, payload, method, headers, allow_truncated,follow_redirects, deadline, *args, **kwargs)
-
 #urlfetch.fetch = new_fetch
 
 jinja_environment = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
@@ -39,20 +40,15 @@ class getShoeScribe(authHandler):
 #		url = "http://pf.tradedoubler.com/export/export?myFeed=13814257482332345&myFormat=13814257482332345"
 #		url = "http://pf.tradedoubler.com/export/export?myFeed=13814286512332345&myFormat=13814286512332345";
 		#url = "http://pf.tradedoubler.com/export/export?myFeed=13816649672332345&myFormat=13814286512332345"
-
-		i=0
-		k=0
-
-		tableRows = []
-	
 	  	#result = urllib2.urlopen(url).read()
 		#output = StringIO.StringIO(result)
 
 
-		#with open('data/data.csv','rb') as shoeData:
-		#	cr = csv.reader(shoeData)
-		#shoeData = open('data/data.csv','rb')
-		shoeData = open('data/data.csv','rb')
+		i=0
+		k=0
+		tableRows = []
+	
+		shoeData = open('data/dataTest.csv','rb')
 		shoeData = shoeData.read()
 		shoeData = StringIO.StringIO(shoeData)
 
@@ -60,10 +56,9 @@ class getShoeScribe(authHandler):
 
 		for row in cr:
 			rowStr = ' '.join(row)
-#			tableRows.append(rowStr.split("|")) #Only for the print view.
 
 			colArray = rowStr.split("|")
-		#add all the columns here
+			
 			if i>0:
 				colArray = [v.replace('"','') for v in colArray]
 				addNewShoe = shoes2()
@@ -116,7 +111,7 @@ class getShoeScribe(authHandler):
 		
 #		template_values = {}
 #		template_values['tableRows']=tableRows
-	#	self.render_response('index.html', **template_values)
+#		self.render_response('index.html', **template_values)
 
 class setTask(authHandler):
 	def get(self):
@@ -128,38 +123,55 @@ class getShoes(authHandler):
 	def get(self,sex,product,category):
 		from random import randrange
 
-		responseReq = 30
+		color = self.request.get('color')
+		num = self.request.get('num')
+		try:
+			responseReq = int(num)
+		except:
+			responseReq = 10
 		
-			
+
 		getShoes = shoes2.all()
-		if sex=="men":
+		if sex=="m":
 			getShoes.filter('sex =',True)
-		else:
+		if sex=="f":
 			getShoes.filter('sex =',False)
 		
 		results = getShoes.fetch(100)
-		
+
 		i = 0
 		obj = []
 		while i<responseReq:
 			rand = randrange(100)
-			url = results[rand].source
+			url = results[rand].url
 			name = results[rand].name
 			img = results[rand].img
 			obj.append({'url':url,'name':name,'img':img})
 			i=i+1
-			
+		
 		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(obj))
 
-		#for test in result:
-		#	print test.source
+class getCat(authHandler):
+	def get(self):
+		categories = ['Sandals','Heels','Flats','Boots','Sneakers']
+		self.response.headers['Content-Type'] = 'application/json'
+		self.response.out.write(json.dumps(categories))
+
+class pushAction(authHandler):
+	def get(self,act):
+		tuser = self.request.get('tuser')
+		fuser = self.request.get('fuser')
+		status = {'status':'OK'}
+		self.response.out.write(json.dumps(status))
 
 
 application = webapp2.WSGIApplication([
 	('/admin/new/feed/shoeScribe', getShoeScribe),
 	('/admin/new/task',setTask),
-	('/get/(.*)/(.*)/(.*)',getShoes)],
+	('/get/(.*)/(.*)/(.*)',getShoes),
+	('/get/catList',getCat),
+	('/push/(.*)/',pushAction)],
 	debug=True)
 
 def main():

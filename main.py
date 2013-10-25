@@ -10,6 +10,7 @@ from google.appengine.api import urlfetch
 from google.appengine.api import taskqueue
 import logging
 import json
+import datetime
 
 config = {}
 config['webapp2_extras.jinja2'] = {
@@ -131,18 +132,18 @@ class getShoes(authHandler):
 			responseReq = 10
 		
 
-		getShoes = shoes2.all()
+		getShoes = shoes2.query()
 		if sex=="m":
-			getShoes.filter('sex =',True)
+			getShoes.filter(shoes2.sex == True)
 		if sex=="f":
-			getShoes.filter('sex =',False)
+			getShoes.filter(shoes2.sex == False)
 		
 		results = getShoes.fetch(100)
 
 		i = 0
 		obj = []
 		while i<responseReq:
-			rand = randrange(100)
+			rand = randrange(50)
 			url = results[rand].url
 			name = results[rand].name
 			img = results[rand].img
@@ -162,7 +163,35 @@ class pushAction(authHandler):
 	def get(self,act):
 		tuser = self.request.get('tuser')
 		fuser = self.request.get('fuser')
+		test = '{"action": {"uuid": "hadi","type": "like","pId": "productId"}}'
 		status = {'status':'OK'}
+		self.response.out.write(json.dumps(status))
+
+class newUser(authHandler):
+	def get(self):
+		uuid = self.request.get('uuid')
+		status = {}
+
+		if(uuid!=""):
+			newUser = userData()
+			newUser.uuId = uuid
+			newUser.lastUpdate = datetime.datetime.now()
+
+			#check if newUser already exists
+			q = userData.query(userData.uuId==uuid)
+			results = q.fetch(1)
+			if len(results)>0:
+				status = {'status':'Failed','Reason':'UUID already Exists'}
+			else:
+				try:
+					newUser.put()
+					status = {'status':'OK'}
+				except:
+					status = {'status':'Failed','Reason':'Unknown'}
+		else:
+			status = {'status':'Failed','reason':'No uuid provided'}
+
+		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(status))
 
 
@@ -171,7 +200,8 @@ application = webapp2.WSGIApplication([
 	('/admin/new/task',setTask),
 	('/get/(.*)/(.*)/(.*)',getShoes),
 	('/get/catList',getCat),
-	('/push/(.*)/',pushAction)],
+	('/push/(.*)/',pushAction),
+	('/users/new',newUser)],
 	debug=True)
 
 def main():

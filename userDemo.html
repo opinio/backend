@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>User Demo</title>
+		<meta charset="utf-8"/>
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+	</head>
+	
+	<body>
+
+	</body>
+
+
+	<script type="text/javascript">
+		data = '{"uuid": "AAAAAAAA-AAAA-AAAA-AAAA-000000000004","fId":"7932301","name":"Hadi Laasi rocks","email":"hadi3.laasi@gmail.com","gender":"f","age":"17-21"}'
+
+		$.ajax({
+   			type: "POST",
+    		url: "/users/new",
+    		data: data,
+    		contentType: "application/json; charset=utf-8",
+    		dataType: "json",
+   			success: function(data){alert(data);},
+    		failure: function(errMsg) {
+        		alert(errMsg);
+    		}
+});
+	</script>
+
+</html>

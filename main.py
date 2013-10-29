@@ -35,6 +35,11 @@ class authHandler(webapp2.RequestHandler):
 		template = jinja_environment.get_template(template_path)
 		self.response.write(template.render(**template_values))
 
+	def convert_md5(self, longStr):
+		import md5
+		m = md5.new()
+		m.update(longStr)
+		return m.hexdigest()
 
 class getShoeScribe(authHandler):
 	def post(self):
@@ -147,7 +152,12 @@ class getShoes(authHandler):
 			url = results[rand].url
 			name = results[rand].name
 			img = results[rand].img
-			obj.append({'url':url,'name':name,'img':img})
+			key = str(results[rand].key.urlsafe())
+			price = str(results[rand].price)
+			source = str(results[rand].source)
+			color = str(results[rand].color)
+
+			obj.append({'url':url,'name':name,'img':img, 'key':key, 'price':price,'source':source,'color':color})
 			i=i+1
 		
 		self.response.headers['Content-Type'] = 'application/json'
@@ -160,39 +170,134 @@ class getCat(authHandler):
 		self.response.out.write(json.dumps(categories))
 
 class pushAction(authHandler):
-	def get(self,act):
-		tuser = self.request.get('tuser')
-		fuser = self.request.get('fuser')
-		test = '{"action": {"uuid": "hadi","type": "like","pId": "productId"}}'
-		status = {'status':'OK'}
+	def get(self):
+
+		template_values = {}
+		self.render_response('actDemo.html', **template_values)
+
+	def post(self):
+		data = self.request.body
+		status = {}
+		try:
+			data = json.loads(data)
+			status = {'status':'OK'}
+			uuid = data['uuid']
+		except:
+			status= {'status':'Failed to load data in JSON--check formatting','dataReceived':data}
+
+		for action in data["actions"]:
+			actionType = action['type']
+			test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pId':action['pKey'], 'act':actionType})
+		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(status))
 
-class newUser(authHandler):
-	def get(self):
+class queueAction(authHandler):
+	def post(self):
 		uuid = self.request.get('uuid')
-		status = {}
+		pId = self.request.get('pId')
+		actionType = self.request.get('act')
+		keyName = uuid+pId
 
-		if(uuid!=""):
-			newUser = userData()
-			newUser.uuId = uuid
-			newUser.lastUpdate = datetime.datetime.now()
-
-			#check if newUser already exists
-			q = userData.query(userData.uuId==uuid)
-			results = q.fetch(1)
-			if len(results)>0:
-				status = {'status':'Failed','Reason':'UUID already Exists'}
+		if(actionType=='delete'):
+			updateAct = responses.get_by_id(keyName)
+			if updateAct:
+				updateAct.act = "delete"
+				updateAct.put()
+		elif actionType=='like' or actionType=='dislike':
+			if responses.get_by_id(keyName): #check if duplicate before storing
+				pass
 			else:
+				newResponse = responses(id=keyName)
+				newResponse.uuId = ndb.Key('userData',uuid)
+				newResponse.pId = ndb.Key('shoes2',pId)
+				newResponse.act = actionType
+				newResponse.put()
+
+
+class newUser(authHandler):
+	def post(self):
+		data = self.request.body
+		status = {}
+		
+		try:
+			data = json.loads(data)
+			keyName = self.convert_md5(data['uuid'])
+
+			duplicate = userData.get_by_id(keyName)
+			if duplicate:
 				try:
-					newUser.put()
+					gender = data['gender']
+					if gender=="m":
+						duplicate.gender = True
+					else:
+						duplicate.gender = False
+
+					duplicate.fId = int(data['fId'])
+					duplicate.name = data['name']
+					duplicate.email = data['email']
+					duplicate.age = data['age']
+					status = {'status':'OK','warning':'UUID already existed, only updated FB Information'}
+					duplicate.put()
+				except:
+					status = {'status':'Failed','reason':'It was a duplicate UUID, but then failed in trying to update duplicate FB stuff'}
+					raise
+			else:
+				newUser = userData(id=keyName)
+				newUser.uuId = data['uuid']
+				try:
+					gender = data['gender']
+					if gender=="m":
+						newUser.gender = True
+					else:
+						newUser.gender = False
+
+					newUser.fId = int(data['fId'])
+					newUser.name = data['name']
+					newUser.email = data['email']
+					newUser.age = data['age']
 					status = {'status':'OK'}
 				except:
-					status = {'status':'Failed','Reason':'Unknown'}
-		else:
-			status = {'status':'Failed','reason':'No uuid provided'}
+					status = {'status':'OK','warning':'No Facebook Information'}
+			
+				newUser.put()
+		except:
+			status = {'status':'Failed','Reason':'Had trouble parsing the JSON'}
+			raise
 
 		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(status))
+
+
+	def get(self):
+		template_values = {}
+		self.render_response('userDemo.html', **template_values)
+
+		#import uuid
+		#uID = self.request.get('uuid')
+		#status = {}
+
+		#if(uID!=""):
+		#	#uID = uuid.UUID(uID).int
+		#	newUser = userData(id=uID)
+		#	newUser.uuId = uID
+		#	newUser.lastUpdate = datetime.datetime.now()
+
+			#check if newUser already exists
+		#	q = userData.query(userData.uuId==uID)
+		#	results = q.fetch(1)
+		#	if len(results)>0:
+		#		status = {'status':'Failed','Reason':'UUID already Exists'}
+		#	else:
+		#		try:
+		#			newUser.put()
+		#			status = {'status':'OK'}
+		#		except:
+		#			status = {'status':'Failed','Reason':'Unknown'}
+	#	else:
+	#		status = {'status':'Failed','reason':'No uuid provided'}
+#
+#		self.response.headers['Content-Type'] = 'application/json'
+#		self.response.out.write(json.dumps(status))
 
 
 application = webapp2.WSGIApplication([
@@ -200,7 +305,8 @@ application = webapp2.WSGIApplication([
 	('/admin/new/task',setTask),
 	('/get/(.*)/(.*)/(.*)',getShoes),
 	('/get/catList',getCat),
-	('/push/(.*)/',pushAction),
+	('/push/action',pushAction),
+	('/queue/action',queueAction),
 	('/users/new',newUser)],
 	debug=True)
 

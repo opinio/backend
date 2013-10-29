@@ -21,13 +21,18 @@ class shoes2(ndb.Model):
 	sex = ndb.BooleanProperty() #men = 1, women = 0
 	
 
-class userData(ndb.Model):
+class userData(ndb.Model): #no Keyname
 	uuId = ndb.StringProperty()
 	fId = ndb.IntegerProperty()
+	name = ndb.StringProperty()
+	email = ndb.StringProperty()
+	gender = ndb.BooleanProperty()
+	age = ndb.StringProperty()
 	created = ndb.DateTimeProperty(auto_now_add=True)
 	lastUpdate = ndb.DateTimeProperty()
 
 class responses(ndb.Model):
 	pId = ndb.KeyProperty(kind=shoes2)
 	uuId = ndb.KeyProperty(kind=userData)
-	response = ndb.BooleanProperty()
+	act = ndb.StringProperty()
+	date = ndb.DateTimeProperty(auto_now_add=True)

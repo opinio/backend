@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Find your perfect shoe</title>
+		<meta charset="utf-8"/>
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+	</head>
+	
+	<body>
+
+	</body>
+
+
+	<script type="text/javascript">
+		data = '{"uuid": "hadirocks1","actions": [{"type": "like","pKey": "ag1kZXZ-c2ZiYWNrZW5kchMLEgZzaG9lczIYgICAgICAiAkM"},{"type": "like","pKey": "ag1kZXZ-c2ZiYWNrZW5kchMLEgZzaG9lczIYgICAgICAoAgM"}]}'
+
+		$.ajax({
+   			type: "POST",
+    		url: "/push/action",
+    		data: data,
+    		contentType: "application/json; charset=utf-8",
+    		dataType: "json",
+   			success: function(data){alert(data);},
+    		failure: function(errMsg) {
+        		alert(errMsg);
+    		}
+});
+	</script>
+
+</html>

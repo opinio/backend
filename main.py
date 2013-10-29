@@ -184,10 +184,15 @@ class pushAction(authHandler):
 			uuid = data['uuid']
 		except:
 			status= {'status':'Failed to load data in JSON--check formatting','dataReceived':data}
+		
+		userExists = userData.get_by_id(self.convert_md5(uuid))
+		if userExists:
+			for action in data["actions"]:
+				actionType = action['type']
+				test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pId':action['pKey'], 'act':actionType})
+		else:
+			status = {'status':'failed','reason':'User does not exist'}
 
-		for action in data["actions"]:
-			actionType = action['type']
-			test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pId':action['pKey'], 'act':actionType})
 		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(status))
 
@@ -196,7 +201,7 @@ class queueAction(authHandler):
 		uuid = self.request.get('uuid')
 		pId = self.request.get('pId')
 		actionType = self.request.get('act')
-		keyName = uuid+pId
+		keyName = self.convert_md5(uuid+pId)
 
 		if(actionType=='delete'):
 			updateAct = responses.get_by_id(keyName)
@@ -208,8 +213,8 @@ class queueAction(authHandler):
 				pass
 			else:
 				newResponse = responses(id=keyName)
-				newResponse.uuId = ndb.Key('userData',uuid)
-				newResponse.pId = ndb.Key('shoes2',pId)
+				newResponse.uuId = ndb.Key('userData',self.convert_md5(uuid))
+				newResponse.pId = ndb.Key(urlsafe=pId)
 				newResponse.act = actionType
 				newResponse.put()
 

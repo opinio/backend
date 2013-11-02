@@ -5,4 +5,4 @@ queue:
       task_retry_limit: 0
 
 - name: actions
-  rate: 10/s
+  rate: 100/s

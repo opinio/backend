@@ -136,7 +136,7 @@ class getShoes(authHandler):
 	
 		#config
 		defaultRequests = 10
-		defaultFetch = 100
+		defaultFetch = 1000
 		status = {}
 
 		data = self.request.body
@@ -170,8 +170,15 @@ class getShoes(authHandler):
 		
 			i = 0
 			obj = []
+			selected = []
 			while i<responseReq:
-				rand = randrange(68)
+				rand = randrange(999)
+
+				if(rand in selected):
+					continue
+				else:
+					selected.append(rand)
+				
 				pUrl = results[rand].url
 				pName = results[rand].name
 				pImg = results[rand].img
@@ -289,7 +296,6 @@ class newUser(authHandler):
 					duplicate.put()
 				except:
 					status = {'status':'Failed','reason':'It was a duplicate UUID, but then failed in trying to update duplicate FB stuff'}
-					raise
 			else:
 				newUser = userData(id=keyName)
 				newUser.uuId = data['uuid']
@@ -311,7 +317,6 @@ class newUser(authHandler):
 				newUser.put()
 		except:
 			status = {'status':'Failed','Reason':'Had trouble parsing the JSON'}
-			raise
 
 		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(status))

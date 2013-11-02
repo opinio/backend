@@ -54,7 +54,7 @@ class getShoeScribe(authHandler):
 		k=0
 		tableRows = []
 	
-		shoeData = open('data/dataTest.csv','rb')
+		shoeData = open('data/data.csv','rb')
 		shoeData = shoeData.read()
 		shoeData = StringIO.StringIO(shoeData)
 
@@ -126,40 +126,75 @@ class setTask(authHandler):
 		taskqueue.add(url='/admin/new/feed/shoeScribe')
 
 class getShoes(authHandler):
-	def get(self,sex,product,category):
+
+	def get(self):
+		template_values = {}
+		self.render_response('getDemo.html', **template_values)
+		
+	def post(self):
 		from random import randrange
+	
+		#config
+		defaultRequests = 10
+		defaultFetch = 100
+		status = {}
 
-		color = self.request.get('color')
-		num = self.request.get('num')
+		data = self.request.body
+
+		#Time to parse the data we got, see if it's legit.
 		try:
-			responseReq = int(num)
+			data = json.loads(data)
+			uuid = data['uuid'] #warning: we will not double check to see if UUID exists
+			sex = data['sex']
+			cat = data['cat']
+			product = data['type'] #irrelevant for now and ignored in the code, but futureproofing stuff
+
+			if sex=="m":
+				sex = True
+			elif sex=="f":
+			    sex = False
+			else:
+				raise Exception("No sex provided!")
+
+			#color = data['color']
+			#minPrice = data['minPrice']
+			#maxPrice = data['maxPrice']
+			try:
+				responseReq = int(data['num'])
+			except:
+				responseReq = defaultRequests
+
+			getShoes = shoes2.query()
+			getShoes.filter(shoes2.sex==sex)
+			results = getShoes.fetch(defaultFetch)
+		
+			i = 0
+			obj = []
+			while i<responseReq:
+				rand = randrange(68)
+				pUrl = results[rand].url
+				pName = results[rand].name
+				pImg = results[rand].img
+				pKey = str(results[rand].key.urlsafe())
+				pPrice = str(results[rand].price)
+				pSource = str(results[rand].source)
+				pColor = str(results[rand].color)
+
+				#this is where you check if it's already in the responses table
+				#if it is in the response table, don't do anything! It shouldn't have been sent 
+				keyName = self.convert_md5(uuid+pKey)
+				if responses.get_by_id(keyName):
+					pass
+				#if it's not in the response table add it and append to obj
+				else:
+					taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':pKey, 'act':'sent'})
+					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':pPrice,'source':pSource,'color':pColor})
+					i=i+1
+
 		except:
-			responseReq = 10
-		
-
-		getShoes = shoes2.query()
-		if sex=="m":
-			getShoes.filter(shoes2.sex == True)
-		if sex=="f":
-			getShoes.filter(shoes2.sex == False)
-		
-		results = getShoes.fetch(100)
-
-		i = 0
-		obj = []
-		while i<responseReq:
-			rand = randrange(50)
-			url = results[rand].url
-			name = results[rand].name
-			img = results[rand].img
-			key = str(results[rand].key.urlsafe())
-			price = str(results[rand].price)
-			source = str(results[rand].source)
-			color = str(results[rand].color)
-
-			obj.append({'url':url,'name':name,'img':img, 'key':key, 'price':price,'source':source,'color':color})
-			i=i+1
-		
+			status = {'status':'failed','reason':'unable to parse json'}
+			raise
+			
 		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(obj))
 
@@ -189,7 +224,7 @@ class pushAction(authHandler):
 		if userExists:
 			for action in data["actions"]:
 				actionType = action['type']
-				test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pId':action['pKey'], 'act':actionType})
+				test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':action['pKey'], 'act':actionType})
 		else:
 			status = {'status':'failed','reason':'User does not exist'}
 
@@ -199,24 +234,33 @@ class pushAction(authHandler):
 class queueAction(authHandler):
 	def post(self):
 		uuid = self.request.get('uuid')
-		pId = self.request.get('pId')
+		pKey = self.request.get('pKey')
 		actionType = self.request.get('act')
-		keyName = self.convert_md5(uuid+pId)
+		keyName = self.convert_md5(uuid+pKey) #the keyName is the md5'ed concatenation of uuid and PKEY at all times!
+
 
 		if(actionType=='delete'):
+			#if the user has asked to delete the like, mark it as a delete.
 			updateAct = responses.get_by_id(keyName)
 			if updateAct:
 				updateAct.act = "delete"
 				updateAct.put()
-		elif actionType=='like' or actionType=='dislike':
+		elif(actionType=="sent"):
+			#if we just sent the product to the user, we'll mark it as sent.
 			if responses.get_by_id(keyName): #check if duplicate before storing
 				pass
 			else:
-				newResponse = responses(id=keyName)
-				newResponse.uuId = ndb.Key('userData',self.convert_md5(uuid))
-				newResponse.pId = ndb.Key(urlsafe=pId)
-				newResponse.act = actionType
-				newResponse.put()
+				sentProduct= responses(id=keyName)
+				sentProduct.uuId = ndb.Key('userData',self.convert_md5(uuid))
+				sentProduct.pId = ndb.Key(urlsafe=pKey)
+				sentProduct.act = actionType
+				sentProduct.put()
+		elif actionType=='like' or actionType=='dislike':
+			#if they responded back, we need to load the sent product and then update it to a like or a dislike
+			updateAct = responses.get_by_id(keyName) #check if duplicate before storing
+			if updateAct:
+				updateAct.act = actionType
+				updateAct.put()
 
 
 class newUser(authHandler):
@@ -308,7 +352,7 @@ class newUser(authHandler):
 application = webapp2.WSGIApplication([
 	('/admin/new/feed/shoeScribe', getShoeScribe),
 	('/admin/new/task',setTask),
-	('/get/(.*)/(.*)/(.*)',getShoes),
+	('/get/products',getShoes),
 	('/get/catList',getCat),
 	('/push/action',pushAction),
 	('/queue/action',queueAction),

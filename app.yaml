@@ -21,6 +21,9 @@ handlers:
   upload: img/favicon.ico
   expiration: 0
 
+- url: /js
+  static_dir: js
+
 - url: /data
   static_dir: data 
   application_readable: true

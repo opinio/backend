@@ -22,6 +22,7 @@ class shoes2(ndb.Model):
 	color = ndb.StringProperty()
 	sex = ndb.BooleanProperty() #men = 1, women = 0
 	rating = ndb.IntegerProperty()
+	srank = ndb.IntegerProperty()
 	
 
 class userData(ndb.Model): #no Keyname

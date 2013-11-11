@@ -12,6 +12,7 @@ import logging
 import json
 import datetime
 import setup
+import internal
 
 config = {}
 config['webapp2_extras.jinja2'] = {
@@ -113,9 +114,8 @@ class getShoes(authHandler):
 			if queryCursor:
 				results = getShoes.iter(produce_cursors=True,limit=50,start_cursor=queryCursor)
 			else:	
-				results = getShoes.iter(produce_cursors=True, limit=50)
-#			results = getShoes.fetch(defaultFetch)
-
+				results = getShoes.iter(produce_cursors=True, limit=defaultFetch)
+			
 			#Makes sure that if the results are less than what we expected to fetch
 			#the random number doesn't ask for too many and cause an index error
 			#if len(results)<defaultFetch:
@@ -192,12 +192,18 @@ class pushAction(authHandler): #Manages updates of likes/dislikes
 			userExists = userData.get_by_id(self.convert_md5(uuid))
 			if userExists:
 				for action in data["actions"]:
-					actionType = action['type']
-					test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':action['pKey'], 'act':actionType,'devMode':dev})
+					productExists = ndb.Key(urlsafe=action['pKey']).get()
+					if productExists:
+						actionType = action['type']
+						test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':action['pKey'], 'act':actionType,'devMode':dev})
+
+					else:
+						status = {'status':'failed','reason':'Product does not exist'}
 			else:
 				status = {'status':'failed','reason':'User does not exist'}
 		except:
 			status= {'status':'Failed to load data in JSON--check formatting','dataReceived':data}
+			raise
 		
 		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(status))
@@ -347,7 +353,6 @@ class newUser(authHandler):
 		self.render_response('userDemo.html', **template_values)
 
 application = webapp2.WSGIApplication([
-	('/admin/new/task',setTask),
 	('/get/products',getShoes),
 	('/get/catList',getCat),
 	('/push/action',pushAction),
@@ -355,10 +360,11 @@ application = webapp2.WSGIApplication([
 	('/queue/action',queueAction),
 	('/users/new',newUser),
 	('/admin/addShoeTask', setup.addShoeTask),
+	('/admin/new/task',setup.setTask),
 	('/admin/addShoe', setup.addShoe),
 	('/admin/update/cat',setup.updateCat),
 	('/admin/update/cat/task',setup.updateCatTask),
-	('/test',setup.test)],
+	('/admin/update/deleteAll',setup.deleteAll)],
 	debug=True)
 
 def main():

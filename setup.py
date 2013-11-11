@@ -16,7 +16,7 @@ class addShoeTask(webapp2.RequestHandler):
 
 		k=0
 	
-		shoeData = open('data/dataTest.csv','rb')
+		shoeData = open('data/data.csv','rb')
 		shoeData = shoeData.read()
 		shoeData = StringIO.StringIO(shoeData)
 
@@ -25,7 +25,6 @@ class addShoeTask(webapp2.RequestHandler):
 		for row in cr:
 			rowStr = ' '.join(row)
 			taskqueue.add(queue_name="addShoes", url="/admin/addShoe", params={'line':rowStr})
-
 
 
 class addShoe(webapp2.RequestHandler):
@@ -218,6 +217,24 @@ class updateCatTask(webapp2.RequestHandler):
 			else:
 				pass
 
-class test(webapp2.RequestHandler):
-	def get(self):
-		self.response.write("hello, this works!")
+class deleteAll(webapp2.RequestHandler):
+	def post(self):
+		getShoes = shoes2.query()
+		results = getShoes.fetch()
+		for shoe in results:
+			shoe.key.delete()
+
+		getResponses = responses.query()
+		results = getResponses.fetch()
+		for response in results:
+			response.key.delete()
+
+		getResponses = responses.query()
+		results = getResponses.fetch()
+		for response in results:
+			response.key.delete()
+
+		getUsers = userData.query()
+		results = getUsers.fetch()
+		for user in results:
+			user.key.delete()

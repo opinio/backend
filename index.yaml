@@ -16,3 +16,9 @@ indexes:
   - name: sex
   - name: rating
     direction: desc
+
+- kind: shoes2
+  properties:
+  - name: sex
+  - name: rating
+    direction: desc

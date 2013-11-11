@@ -7,12 +7,16 @@ import logging
 from model import *
 
 class addShoeTask(webapp2.RequestHandler):
+	def get(self):
+		taskqueue.add(queue_name="addShoes", url="/admin/addShoeTask", target='addshoe')
+
 	def post(self):
 #		url = "http://pf.tradedoubler.com/export/export?myFeed=13814257482332345&myFormat=13814257482332345"
 #		url = "http://pf.tradedoubler.com/export/export?myFeed=13814286512332345&myFormat=13814286512332345";
 		#url = "http://pf.tradedoubler.com/export/export?myFeed=13816649672332345&myFormat=13814286512332345"
 	  	#result = urllib2.urlopen(url).read()
 		#output = StringIO.StringIO(result)
+		
 
 		k=0
 	
@@ -24,7 +28,7 @@ class addShoeTask(webapp2.RequestHandler):
 
 		for row in cr:
 			rowStr = ' '.join(row)
-			taskqueue.add(queue_name="addShoes", url="/admin/addShoe", params={'line':rowStr})
+			taskqueue.add(queue_name="addShoes", url="/admin/addShoe", params={'line':rowStr},target='default')
 
 
 class addShoe(webapp2.RequestHandler):
@@ -119,6 +123,9 @@ class addShoe(webapp2.RequestHandler):
 		addNewShoe.catName = colArray[8]
 		addNewShoe.mcatName = colArray[9]
 		addNewShoe.sku = colArray[10]
+		addNewShoe.img = colArray[2].replace("_11_","_14_")
+		addNewShoe.rating = 0
+		addNewShoe.srank = 0
 
 		if addNewShoe.mcatName in catMapping:
 			addNewShoe.sCat = catMapping[addNewShoe.mcatName]
@@ -137,7 +144,7 @@ class addShoe(webapp2.RequestHandler):
 		fieldData = colArray[34].replace('"','').split(";")
 		for field in fieldData:
 			field = field.split(":")
-			if field[0]=="color":
+			if field[0]=="color" or field[0]=="colori":
 				addNewShoe.mColor = field[1]
 				color = field[1].split(" ")
 				for c in color:
@@ -173,49 +180,51 @@ class updateCat(webapp2.RequestHandler):
 class updateCatTask(webapp2.RequestHandler):
 	def post(self):
 		counter = self.request.get('counter')
-		logging.info(counter)
 		key = self.request.get('key')
 		entity = ndb.Key(urlsafe=key).get()
-		mapping = {
-			'Boots_Ankle boots_D':'Boots',
-			'Boots_Boots_D':'Boots',
-			'Espadrilles_Espadrilles_D':'NA',
-			'Extras_Shoecare_D':'NA',
-			'FOOTWEAR_Ankle boots_D':'Boots',
-			'FOOTWEAR_Ankle boots_U':'Boots',
-			'FOOTWEAR_Ballet flats_D':'Flats',
-			'FOOTWEAR_Boots_D':'Boots',
-			'FOOTWEAR_Boots_U':'NA',
-			'FOOTWEAR_Clog sandals_D':'NA',
-			'FOOTWEAR_Closed-toe slip-ons _D':'Heels',
-			'FOOTWEAR_Combat boots_D':'NA',
-			'FOOTWEAR_Combat boots_U':'Boots',
-			'FOOTWEAR_Flip flops_D':'NA',
-			'FOOTWEAR_Flip flops_U':'NA',
-			'FOOTWEAR_High-heeled boots_D':'Boots',
-			'FOOTWEAR_High-heeled sandals_D':'Heels',
-			'FOOTWEAR_High-top dress shoes_U':'NA',
-			'FOOTWEAR_Moccasins with heel_D':'Heels',
-			'FOOTWEAR_Mules_D':'Boots',
-			'FOOTWEAR_Peep-toe ballet flats_D':'NA',
-			'FOOTWEAR_Platform sandals_D':'Heels',
-			'FOOTWEAR_Sandals_D':'Sandals',
-			'FOOTWEAR_Sandals_U':'NA',
-			'FOOTWEAR_Shoe boots_D':'Boots',
-			'FOOTWEAR_Slingbacks_D':'Heels',
-			'FOOTWEAR_Slippers_D':'NA',
-			'FOOTWEAR_Slippers_U':'NA',
-			'FOOTWEAR_Wedges_D':'Heels'
-		}
+
+		#DELETE IT!
+		ndb.Key(urlsafe=key).delete()
+		#mapping = {
+		#	'Boots_Ankle boots_D':'Boots',
+		#	'Boots_Boots_D':'Boots',
+		#	'Espadrilles_Espadrilles_D':'NA',
+		#	'Extras_Shoecare_D':'NA',
+		#	'FOOTWEAR_Ankle boots_D':'Boots',
+		#	'FOOTWEAR_Ankle boots_U':'Boots',
+		#	'FOOTWEAR_Ballet flats_D':'Flats',
+		#	'FOOTWEAR_Boots_D':'Boots',
+		#	'FOOTWEAR_Boots_U':'NA',
+		#	'FOOTWEAR_Clog sandals_D':'NA',
+		#	'FOOTWEAR_Closed-toe slip-ons _D':'Heels',
+		#	'FOOTWEAR_Combat boots_D':'NA',
+		#	'FOOTWEAR_Combat boots_U':'Boots',
+		#	'FOOTWEAR_Flip flops_D':'NA',
+		#	'FOOTWEAR_Flip flops_U':'NA',
+		#	'FOOTWEAR_High-heeled boots_D':'Boots',
+		#	'FOOTWEAR_High-heeled sandals_D':'Heels',
+		#	'FOOTWEAR_High-top dress shoes_U':'NA',
+		#	'FOOTWEAR_Moccasins with heel_D':'Heels',
+		#	'FOOTWEAR_Mules_D':'Boots',
+		#	'FOOTWEAR_Peep-toe ballet flats_D':'NA',
+		#	'FOOTWEAR_Platform sandals_D':'Heels',
+		#	'FOOTWEAR_Sandals_D':'Sandals',
+		#	'FOOTWEAR_Sandals_U':'NA',
+		#	'FOOTWEAR_Shoe boots_D':'Boots',
+		#	'FOOTWEAR_Slingbacks_D':'Heels',
+		#	'FOOTWEAR_Slippers_D':'NA',
+		#	'FOOTWEAR_Slippers_U':'NA',
+		#	'FOOTWEAR_Wedges_D':'Heels'
+		#}
 		#logging.info(entity.sCat)
-		if(entity.sCat):
-			pass
-		else:
-			if entity.mcatName in mapping:
-				entity.sCat = mapping[entity.mcatName]
-				entity.put()
-			else:
-				pass
+		#if(entity.sCat):
+		#	pass
+		#else:
+		#	if entity.mcatName in mapping:
+		#		entity.sCat = mapping[entity.mcatName]
+				#entity.put()
+		#	else:
+		#		pass
 
 class deleteAll(webapp2.RequestHandler):
 	def post(self):
@@ -223,11 +232,6 @@ class deleteAll(webapp2.RequestHandler):
 		results = getShoes.fetch()
 		for shoe in results:
 			shoe.key.delete()
-
-		getResponses = responses.query()
-		results = getResponses.fetch()
-		for response in results:
-			response.key.delete()
 
 		getResponses = responses.query()
 		results = getResponses.fetch()

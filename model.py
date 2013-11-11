@@ -1,5 +1,4 @@
 from google.appengine.ext import ndb
-
 class shoes2(ndb.Model):
 	source = ndb.StringProperty()
 	name = ndb.StringProperty()
@@ -8,21 +7,22 @@ class shoes2(ndb.Model):
 	description = ndb.TextProperty()
 	price = ndb.FloatProperty()
 	currency = ndb.StringProperty()
-	pId = ndb.IntegerProperty()
-	catId = ndb.IntegerProperty() #is it smart to lock this in as an integer?
+	sCat = ndb.StringProperty()
+	color = ndb.StringProperty()
+	sex = ndb.BooleanProperty() #men = 1, women = 0
+	srank = ndb.IntegerProperty()
+	rating = ndb.IntegerProperty()
+	
+	#yoox quirky stuff saved just to be safe
+	pId = ndb.IntegerProperty() #will help us get uniqueness across yoox dataset
+	catId = ndb.IntegerProperty() 
 	catName = ndb.StringProperty()
 	mcatName = ndb.StringProperty()
-	sCat = ndb.StringProperty()
 	sku = ndb.StringProperty()
 	prevPrice = ndb.FloatProperty()
 	inStock = ndb.BooleanProperty()
 	sizes = ndb.StringProperty(repeated=True)
-
 	mColor = ndb.StringProperty()
-	color = ndb.StringProperty()
-	sex = ndb.BooleanProperty() #men = 1, women = 0
-	rating = ndb.IntegerProperty()
-	srank = ndb.IntegerProperty()
 	
 
 class userData(ndb.Model): #no Keyname

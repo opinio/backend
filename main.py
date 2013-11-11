@@ -93,9 +93,9 @@ class getShoes(authHandler):
 			
 			#load cursor and cursor name--TODO: OPTIMIZE AND MAKE IT A NEW MODULE
 			cursorName = '-'.join([str(sex),str(cat),str(product),str(color),str(minPrice),str(maxPrice),'sortByRating']) 
-			cursorList = getUser.cursors
 			queryCursor = None
 			try:
+				cursorList = getUser.cursors
 				cursorList = json.loads(cursorList)
 				queryCursor = cursorList[cursorName]
 				queryCursor = ndb.Cursor.from_websafe_string(queryCursor)
@@ -152,11 +152,15 @@ class getShoes(authHandler):
 
 			#update Cursor TODO: make this its own module!!
 			cursorList[cursorName] = newCursor
-			getUser.cursors = json.dumps(cursorList)
-			getUser.put()
+			try:
+				getUser.cursors = json.dumps(cursorList)
+				getUser.put()
+			except AttributeError:
+				newUser.cursors = json.dumps(cursorList)
+				newUser.put()
 
 		except:
-			status = {'status':'failed','reason':'unable to parse json'}
+			status = {'status':'Failed','reason':'unable to parse json'}
 			raise
 			
 		self.response.headers['Content-Type'] = 'application/json'
@@ -265,7 +269,7 @@ class queueAction(authHandler):
 				updatePrd.rating = updatePrd.rating+delta
 				updatePrd.put()
 			else:
-				logging.warning(devMode)
+				pass
 
 
 class pushEmail(authHandler):

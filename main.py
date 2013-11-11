@@ -11,6 +11,7 @@ from google.appengine.api import taskqueue
 import logging
 import json
 import datetime
+import setup
 
 config = {}
 config['webapp2_extras.jinja2'] = {
@@ -53,6 +54,7 @@ class getShoeScribe(authHandler):
 		i=0
 		k=0
 		tableRows = []
+		category = []
 	
 		shoeData = open('data/data.csv','rb')
 		shoeData = shoeData.read()
@@ -85,8 +87,12 @@ class getShoeScribe(authHandler):
 				addNewShoe.mcatName = colArray[9]
 				addNewShoe.sku = colArray[10]
 
-				print colArray[30]
-				
+				#get category name
+				if(addNewShoe.mcatName in category):
+					pass
+				else:
+					category.append(addNewShoe.mcatName)
+
 				try:
 					addNewShoe.prevPrice = float(colArray[13])
 				except:
@@ -112,9 +118,9 @@ class getShoeScribe(authHandler):
 						else:
 							addNewShoe.sex = False
 
-				addNewShoe.put()
+				addNewShoe.put() #I have disabled puts for security purposes
 			i=i+1
-		
+		logging.info(category)
 #		template_values = {}
 #		template_values['tableRows']=tableRows
 #		self.render_response('index.html', **template_values)
@@ -135,8 +141,8 @@ class getShoes(authHandler):
 		from random import randrange
 	
 		#config
-		defaultRequests = 10
-		defaultFetch = 1000
+		defaultRequests = 2
+		defaultFetch = 500
 		status = {}
 
 		data = self.request.body
@@ -144,59 +150,100 @@ class getShoes(authHandler):
 		#Time to parse the data we got, see if it's legit.
 		try:
 			data = json.loads(data)
-			uuid = data['uuid'] #warning: we will not double check to see if UUID exists
+			uuid = data['uuid']
+			getUser = userData.get_by_id(self.convert_md5(uuid))
 			sex = data['sex']
 			cat = data['cat']
+			product = ""
 			product = data['type'] #irrelevant for now and ignored in the code, but futureproofing stuff
-
-			if sex=="m":
-				sex = True
-			elif sex=="f":
-			    sex = False
-			else:
-				raise Exception("No sex provided!")
+			color = None
+			minPrice = None
+			maxPrice = None
+			sex = [True,False][sex=="f"]
 
 			#color = data['color']
 			#minPrice = data['minPrice']
 			#maxPrice = data['maxPrice']
+			
 			try:
 				responseReq = int(data['num'])
 			except:
 				responseReq = defaultRequests
+		
+			#Create a new user if he/she doesn't exist yet
+			uuidKeyName = self.convert_md5(data['uuid'])	
+			userExists = userData.get_by_id(uuidKeyName)
+			if userExists:
+				pass
+			else:
+				newUser = userData(id=uuidKeyName)
+				newUser.uuId = data['uuid']
+				newUser.put()
+			
+			#load cursor and cursor name--TODO: OPTIMIZE AND MAKE IT A NEW MODULE
+			cursorName = '-'.join([str(sex),str(cat),str(product),str(color),str(minPrice),str(maxPrice),'sortByRating']) 
+			cursorList = getUser.cursors
+			queryCursor = None
+			try:
+				cursorList = json.loads(cursorList)
+				queryCursor = cursorList[cursorName]
+				queryCursor = ndb.Cursor.from_websafe_string(queryCursor)
+			except KeyError:
+				queryCursor = None
+			except:
+				cursorList = {}
 
+			#START QUERY
 			getShoes = shoes2.query()
-			getShoes.filter(shoes2.sex==sex)
-			results = getShoes.fetch(defaultFetch)
+			getShoes = getShoes.filter(shoes2.sex==sex)
+			getShoes = [getShoes.filter(shoes2.color==color),getShoes][color==None]
+			getShoes = [getShoes.filter(shoes2.sCat==cat),getShoes][cat=="all"]
+			getShoes = getShoes.order(-shoes2.rating)
+
+			if queryCursor:
+				results = getShoes.iter(produce_cursors=True,limit=50,start_cursor=queryCursor)
+			else:	
+				results = getShoes.iter(produce_cursors=True, limit=50)
+#			results = getShoes.fetch(defaultFetch)
+
+			#Makes sure that if the results are less than what we expected to fetch
+			#the random number doesn't ask for too many and cause an index error
+			#if len(results)<defaultFetch:
+			#	defaultFetch=len(results)
 		
 			i = 0
 			obj = []
 			selected = []
+
 			while i<responseReq:
-				rand = randrange(999)
+				try:
+					result = results.next()
+					pUrl = result.url
+					pName = result.name
+					pImg = result.img
+					pKey = str(result.key.urlsafe())
+					pPrice = str(result.price)
+					pSource = str(result.source)
+					pColor = str(result.color)
+					pCat = str(result.sCat)
+					newCursor = results.cursor_after().to_websafe_string()
 
-				if(rand in selected):
-					continue
-				else:
-					selected.append(rand)
-				
-				pUrl = results[rand].url
-				pName = results[rand].name
-				pImg = results[rand].img
-				pKey = str(results[rand].key.urlsafe())
-				pPrice = str(results[rand].price)
-				pSource = str(results[rand].source)
-				pColor = str(results[rand].color)
+					keyName = self.convert_md5(uuid+pKey)
+					if responses.get_by_id(keyName): #if duplicate, skip adding it and don't increase I by one
+						continue
 
-				#this is where you check if it's already in the responses table
-				#if it is in the response table, don't do anything! It shouldn't have been sent 
-				keyName = self.convert_md5(uuid+pKey)
-				if responses.get_by_id(keyName):
-					pass
-				#if it's not in the response table add it and append to obj
-				else:
 					taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':pKey, 'act':'sent'})
-					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':pPrice,'source':pSource,'color':pColor})
-					i=i+1
+					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':pPrice,'source':pSource,'color':pColor,'category':pCat})
+				except StopIteration:
+					obj = {'status':'failed','error':'ran out of products to show'}
+					newCursor = queryCursor.to_websafe_string()
+					break
+				i = i+1
+
+			#update Cursor TODO: make this its own module!!
+			cursorList[cursorName] = newCursor
+			getUser.cursors = json.dumps(cursorList)
+			getUser.put()
 
 		except:
 			status = {'status':'failed','reason':'unable to parse json'}
@@ -207,7 +254,12 @@ class getShoes(authHandler):
 
 class getCat(authHandler):
 	def get(self):
-		categories = ['Sandals','Heels','Flats','Boots','Sneakers']
+
+
+		catList = ["Sandals","Heels","Flats","Boots"]
+		colorList = {'Red':'#xxxxx','Black':'#xxxxx','Brown':'#xxxxx','Green':'#xxxxx','Grey':'#xxxxx','Orange':'#xxxxx','Purple':'#xxxxx','Yellow':'#xxxxx','Blue':'#xxxxx','Pink':'#xxxxx','White':'#xxxxx'}
+		priceList = ['Any Price','Under £20','£21-100','£101-200','£201-500','£501+']
+		categories = {'categories':catList,'colors':colorList,'prices':priceList}
 		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(categories))
 
@@ -222,29 +274,38 @@ class pushAction(authHandler):
 		status = {}
 		try:
 			data = json.loads(data)
-			status = {'status':'OK'}
 			uuid = data['uuid']
+			try:
+				dev = data['dev']
+				status = {'status':'OK','devMode':'enabled'}
+			except:
+				dev = False
+				status = {'status':'OK'}
+
+			userExists = userData.get_by_id(self.convert_md5(uuid))
+			if userExists:
+				for action in data["actions"]:
+					actionType = action['type']
+					test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':action['pKey'], 'act':actionType,'devMode':dev})
+			else:
+				status = {'status':'failed','reason':'User does not exist'}
 		except:
 			status= {'status':'Failed to load data in JSON--check formatting','dataReceived':data}
 		
-		userExists = userData.get_by_id(self.convert_md5(uuid))
-		if userExists:
-			for action in data["actions"]:
-				actionType = action['type']
-				test = taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':action['pKey'], 'act':actionType})
-		else:
-			status = {'status':'failed','reason':'User does not exist'}
-
 		self.response.headers['Content-Type'] = 'application/json'
 		self.response.out.write(json.dumps(status))
 
 class queueAction(authHandler):
 	def post(self):
+		devMode = self.request.get('devMode')
+		if devMode=="False":
+			devMode = False
+		else:
+			devMode = True
 		uuid = self.request.get('uuid')
 		pKey = self.request.get('pKey')
 		actionType = self.request.get('act')
 		keyName = self.convert_md5(uuid+pKey) #the keyName is the md5'ed concatenation of uuid and PKEY at all times!
-
 
 		if(actionType=='delete'):
 			#if the user has asked to delete the like, mark it as a delete.
@@ -268,7 +329,118 @@ class queueAction(authHandler):
 			if updateAct:
 				updateAct.act = actionType
 				updateAct.put()
+			else:
+				notsentProduct = responses(id=keyName)
+				notsentProduct= responses(id=keyName)
+				notsentProduct.uuId = ndb.Key('userData',self.convert_md5(uuid))
+				notsentProduct.pId = ndb.Key(urlsafe=pKey)
+				notsentProduct.act = actionType
+				notsentProduct.put()
+			
+			updatePrd = ndb.Key(urlsafe=pKey).get()
 
+			if updatePrd and not devMode:
+				delta = 0
+				if actionType=="like":
+					delta = 1
+				elif actionType=="dislike":
+					delta = -1
+
+				if not updatePrd.rating:
+					updatePrd.rating = 0
+
+				updatePrd.rating = updatePrd.rating+delta
+				updatePrd.put()
+			else:
+				logging.warning(devMode)
+
+class updateCat(authHandler):
+	def get(self):
+		self.response.write('disabled!')
+		#taskqueue.add(url="/admin/update/cat")
+	def post(self):
+		getShoes = shoes2.query()
+		results = getShoes.fetch()
+		i = 0
+		for result in results:
+			i = i+1
+			key = result.key.urlsafe()
+			#taskqueue.add(url="/admin/update/cat/task", params={'counter':i,'key':key})
+
+class updateCatTask(authHandler):
+	def post(self):
+		counter = self.request.get('counter')
+		logging.info(counter)
+		key = self.request.get('key')
+		entity = ndb.Key(urlsafe=key).get()
+		mapping = {
+			'Boots_Ankle boots_D':'Boots',
+			'Boots_Boots_D':'Boots',
+			'Espadrilles_Espadrilles_D':'NA',
+			'Extras_Shoecare_D':'NA',
+			'FOOTWEAR_Ankle boots_D':'Boots',
+			'FOOTWEAR_Ankle boots_U':'Boots',
+			'FOOTWEAR_Ballet flats_D':'Flats',
+			'FOOTWEAR_Boots_D':'Boots',
+			'FOOTWEAR_Boots_U':'NA',
+			'FOOTWEAR_Clog sandals_D':'NA',
+			'FOOTWEAR_Closed-toe slip-ons _D':'Heels',
+			'FOOTWEAR_Combat boots_D':'NA',
+			'FOOTWEAR_Combat boots_U':'Boots',
+			'FOOTWEAR_Flip flops_D':'NA',
+			'FOOTWEAR_Flip flops_U':'NA',
+			'FOOTWEAR_High-heeled boots_D':'Boots',
+			'FOOTWEAR_High-heeled sandals_D':'Heels',
+			'FOOTWEAR_High-top dress shoes_U':'NA',
+			'FOOTWEAR_Moccasins with heel_D':'Heels',
+			'FOOTWEAR_Mules_D':'Boots',
+			'FOOTWEAR_Peep-toe ballet flats_D':'NA',
+			'FOOTWEAR_Platform sandals_D':'Heels',
+			'FOOTWEAR_Sandals_D':'Sandals',
+			'FOOTWEAR_Sandals_U':'NA',
+			'FOOTWEAR_Shoe boots_D':'Boots',
+			'FOOTWEAR_Slingbacks_D':'Heels',
+			'FOOTWEAR_Slippers_D':'NA',
+			'FOOTWEAR_Slippers_U':'NA',
+			'FOOTWEAR_Wedges_D':'Heels'
+		}
+		#logging.info(entity.sCat)
+		if(entity.sCat):
+			pass
+		else:
+			if entity.mcatName in mapping:
+				entity.sCat = mapping[entity.mcatName]
+				entity.put()
+			else:
+				pass
+
+class pushEmail(authHandler):
+	def post(self):
+		data = self.request.body
+
+		try:
+			data = json.loads(data)
+			try:
+				uuidKeyName = self.convert_md5(data['uuid'])
+
+				response = responses.query()
+				response.filter(responses.uuId==ndb.Key('userData',uuidKeyName))
+				response.filter(responses.act=='like')
+				results = response.fetch()
+
+				if len(results)>0:
+					status = {'status':'OK'}
+				else:
+					status = {'status':'Failed','reason':'User does not have any likes'}
+			except:
+				status = {'status':'Failed','reason':'Failed in process of querying datastore'}
+		except:
+			status = {'status':'Failed','reason':'Could not convert json'}
+			raise
+
+		self.response.headers['Content-Type'] = 'application/json'
+		self.response.out.write(json.dumps(status))
+		
 
 class newUser(authHandler):
 	def post(self):
@@ -292,10 +464,10 @@ class newUser(authHandler):
 					duplicate.name = data['name']
 					duplicate.email = data['email']
 					duplicate.age = data['age']
-					status = {'status':'OK','warning':'UUID already existed, only updated FB Information'}
+					status = {'status':'OK','warning':'UUID already existed, only updated FB Information','uuid':data['uuid']}
 					duplicate.put()
 				except:
-					status = {'status':'Failed','reason':'It was a duplicate UUID, but then failed in trying to update duplicate FB stuff'}
+					status = {'status':'Failed','reason':'It was a duplicate UUID, but then failed in trying to update duplicate FB stuff','uuid':data['uuid']}
 			else:
 				newUser = userData(id=keyName)
 				newUser.uuId = data['uuid']
@@ -310,9 +482,9 @@ class newUser(authHandler):
 					newUser.name = data['name']
 					newUser.email = data['email']
 					newUser.age = data['age']
-					status = {'status':'OK'}
+					status = {'status':'OK','uuid':data['uuid']}
 				except:
-					status = {'status':'OK','warning':'No Facebook Information'}
+					status = {'status':'OK','warning':'No Facebook Information','uuid':data['uuid']}
 			
 				newUser.put()
 		except:
@@ -355,13 +527,18 @@ class newUser(authHandler):
 
 
 application = webapp2.WSGIApplication([
-	('/admin/new/feed/shoeScribe', getShoeScribe),
 	('/admin/new/task',setTask),
 	('/get/products',getShoes),
 	('/get/catList',getCat),
 	('/push/action',pushAction),
+	('/push/email',pushEmail),
 	('/queue/action',queueAction),
-	('/users/new',newUser)],
+	('/users/new',newUser),
+	('/admin/addShoeTask', setup.addShoeTask),
+	('/admin/addShoe', setup.addShoe),
+	('/admin/update/cat',setup.updateCat),
+	('/admin/update/cat/task',setup.updateCatTask),
+	('/test',setup.test)],
 	debug=True)
 
 def main():

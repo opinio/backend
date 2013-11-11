@@ -12,13 +12,16 @@ class shoes2(ndb.Model):
 	catId = ndb.IntegerProperty() #is it smart to lock this in as an integer?
 	catName = ndb.StringProperty()
 	mcatName = ndb.StringProperty()
+	sCat = ndb.StringProperty()
 	sku = ndb.StringProperty()
 	prevPrice = ndb.FloatProperty()
 	inStock = ndb.BooleanProperty()
 	sizes = ndb.StringProperty(repeated=True)
 
+	mColor = ndb.StringProperty()
 	color = ndb.StringProperty()
 	sex = ndb.BooleanProperty() #men = 1, women = 0
+	rating = ndb.IntegerProperty()
 	
 
 class userData(ndb.Model): #no Keyname
@@ -30,6 +33,8 @@ class userData(ndb.Model): #no Keyname
 	age = ndb.StringProperty()
 	created = ndb.DateTimeProperty(auto_now_add=True)
 	lastUpdate = ndb.DateTimeProperty()
+	nid = ndb.StringProperty()
+	cursors = ndb.TextProperty()
 
 class responses(ndb.Model):
 	pId = ndb.KeyProperty(kind=shoes2)

@@ -28,7 +28,7 @@ class addShoeTask(webapp2.RequestHandler):
 
 		for row in cr:
 			rowStr = ' '.join(row)
-			taskqueue.add(queue_name="addShoes", url="/admin/addShoe", params={'line':rowStr},target='default')
+			taskqueue.add(queue_name="addShoes", url="/admin/addShoe", params={'line':rowStr},target=taskqueue.DEFAULT_APP_VERSION)
 
 
 class addShoe(webapp2.RequestHandler):

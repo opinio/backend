@@ -1,4 +1,5 @@
-application: sfbackend
+#application: sfbackend
+application: sfstage
 version: 1
 runtime: python27
 api_version: 1
@@ -28,15 +29,15 @@ handlers:
   static_dir: data 
   application_readable: true
 
-- url: /html
-  static_dir: html
+- url: /css
+  static_dir: css
 
 - url: /images
   static_dir: images
 
-- url: /admin/*
+- url: /admin/.*
   script: main.py
-  login: admin
+# login: admin
 
 - url: /.*
   script: main.py

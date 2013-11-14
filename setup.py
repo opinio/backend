@@ -20,7 +20,7 @@ class addShoeTask(webapp2.RequestHandler):
 
 		k=0
 	
-		shoeData = open('data/data.csv','rb')
+		shoeData = open('data/dataTest.csv','rb')
 		shoeData = shoeData.read()
 		shoeData = StringIO.StringIO(shoeData)
 
@@ -225,6 +225,42 @@ class updateCatTask(webapp2.RequestHandler):
 				#entity.put()
 		#	else:
 		#		pass
+
+class updatetopShoes(webapp2.RequestHandler):
+	def get(self):
+		keyShoes = open('data/keyShoes.csv','rU')
+		keyShoes = keyShoes.read()
+		keyShoes = StringIO.StringIO(keyShoes)
+
+		cr = csv.reader(keyShoes, dialect=csv.excel_tab)
+
+		heels = []
+		boots = []
+		flats = []
+		sandals = []
+
+		for row in cr:
+			line = row[0].split(',')
+			heels.append(line[0])
+			boots.append(line[1])
+			flats.append(line[2])
+			sandals.append(line[3])
+
+			taskqueue.add(queue_name="default", url="/admin/update/topShoes", params={'pId':line[0]})
+			taskqueue.add(queue_name="default", url="/admin/update/topShoes", params={'pId':line[1]})
+			taskqueue.add(queue_name="default", url="/admin/update/topShoes", params={'pId':line[2]})
+			taskqueue.add(queue_name="default", url="/admin/update/topShoes", params={'pId':line[3]})
+	def post(self):
+		pId = self.request.get('pId')
+		getShoe = shoes2.query()
+		getShoe = getShoe.filter(shoes2.pId==pId)
+
+		results = getShoe.iter(limit=1)
+		if(results):
+			result = results.next()
+			logging.log('found!'+pId)
+		else:
+			logging.log('none found'+pId)
 
 class deleteAll(webapp2.RequestHandler):
 	def post(self):

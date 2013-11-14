@@ -16,7 +16,7 @@ import internal
 
 config = {}
 config['webapp2_extras.jinja2'] = {
-  'template_path':'/',
+  'template_path':'',
   'environment_args': {
     'autoescape': True,
     'extensions': [
@@ -67,12 +67,15 @@ class getShoes(authHandler):
 			cat = data['cat']
 			product = ""
 			product = data['type'] #irrelevant for now and ignored in the code, but futureproofing stuff
-			color = None
 			minPrice = None
 			maxPrice = None
 			sex = [True,False][sex=="f"]
 
-			#color = data['color']
+			try:
+				color = data['color'].lower()
+			except KeyError:
+				color = None
+
 			#minPrice = data['minPrice']
 			#maxPrice = data['maxPrice']
 			
@@ -80,7 +83,6 @@ class getShoes(authHandler):
 				responseReq = int(data['num'])
 			except:
 				responseReq = defaultRequests
-		
 			#Create a new user if he/she doesn't exist yet
 			uuidKeyName = self.convert_md5(data['uuid'])	
 			userExists = userData.get_by_id(uuidKeyName)
@@ -107,12 +109,12 @@ class getShoes(authHandler):
 			#START QUERY
 			getShoes = shoes2.query()
 			getShoes = getShoes.filter(shoes2.sex==sex)
-			getShoes = [getShoes.filter(shoes2.color==color),getShoes][color==None]
+			getShoes = [getShoes.filter(shoes2.color==color),getShoes][color==None or color=="all"]
 			getShoes = [getShoes.filter(shoes2.sCat==cat),getShoes][cat=="all"]
 			getShoes = getShoes.order(-shoes2.rating)
 
 			if queryCursor:
-				results = getShoes.iter(produce_cursors=True,limit=50,start_cursor=queryCursor)
+				results = getShoes.iter(produce_cursors=True,limit=defaultFetch,start_cursor=queryCursor)
 			else:	
 				results = getShoes.iter(produce_cursors=True, limit=defaultFetch)
 			
@@ -132,32 +134,42 @@ class getShoes(authHandler):
 					pName = result.name
 					pImg = result.img
 					pKey = str(result.key.urlsafe())
-					pPrice = str(result.price)
+					pPrice = result.price
+					pPrevPrice = result.prevPrice
+					pDiscount = int(((pPrevPrice-pPrice)/pPrevPrice)*100)
 					pSource = str(result.source)
 					pColor = str(result.color)
 					pCat = str(result.sCat)
 					newCursor = results.cursor_after().to_websafe_string()
-
 					keyName = self.convert_md5(uuid+pKey)
+
+					showDiscount = [False,True][pDiscount>=50]
+					
 					if responses.get_by_id(keyName): #if duplicate, skip adding it and don't increase I by one
 						continue
 
 					taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':pKey, 'act':'sent'})
-					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':pPrice,'source':pSource,'color':pColor,'category':pCat})
+					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount)})
 				except StopIteration:
 					obj = {'status':'failed','error':'ran out of products to show'}
-					newCursor = queryCursor.to_websafe_string()
+					if queryCursor:
+						newCursor = queryCursor.to_websafe_string()
 					break
 				i = i+1
 
+			
+			#logging.info("hello"+str(responseReq)+str(i))
 			#update Cursor TODO: make this its own module!!
-			cursorList[cursorName] = newCursor
 			try:
-				getUser.cursors = json.dumps(cursorList)
-				getUser.put()
-			except AttributeError:
-				newUser.cursors = json.dumps(cursorList)
-				newUser.put()
+				cursorList[cursorName] = newCursor
+				try:
+					getUser.cursors = json.dumps(cursorList)
+					getUser.put()
+				except AttributeError:
+					newUser.cursors = json.dumps(cursorList)
+					newUser.put()
+			except:
+				pass #this fails when its the first time searching for a color and nothing is found. As a result no cursors should be saved. Basically no responses from the db.
 
 		except:
 			status = {'status':'Failed','reason':'unable to parse json'}
@@ -169,7 +181,7 @@ class getShoes(authHandler):
 class getCat(authHandler):
 	def get(self):
 		catList = ["Sandals","Heels","Flats","Boots"]
-		colorList = {'Red':'#xxxxx','Black':'#xxxxx','Brown':'#xxxxx','Green':'#xxxxx','Grey':'#xxxxx','Orange':'#xxxxx','Purple':'#xxxxx','Yellow':'#xxxxx','Blue':'#xxxxx','Pink':'#xxxxx','White':'#xxxxx'}
+		colorList = {'Red':'#FB0C14','Black':'#000000','Brown':'#9F3C17','Green':'#51CA46','Grey':'#999999','Orange':'#F2732B','Purple':'#9053B4','Yellow':'#FFD236','Blue':'#2657EE','Pink':'#FF75F3','White':'#FFFFFF'}
 		priceList = ['Any Price','Under £20','£21-100','£101-200','£201-500','£501+']
 		categories = {'categories':catList,'colors':colorList,'prices':priceList}
 		self.response.headers['Content-Type'] = 'application/json'
@@ -356,6 +368,52 @@ class newUser(authHandler):
 		template_values = {}
 		self.render_response('userDemo.html', **template_values)
 
+class getWishlist(authHandler):
+	def get(self,fId):
+		fId = int(fId)
+		getUser = userData.query()
+		getUser = getUser.filter(userData.fId==fId)
+		getUser = getUser.iter(limit=1)
+		
+		try:
+			user = getUser.next()
+			uuId = user.key
+			getLikes = responses.query()
+			getLikes = getLikes.filter(responses.uuId==uuId)
+			getLikes = getLikes.filter(responses.act=="like")
+			results = getLikes.iter()
+			pKeys = []
+			pList = []
+			if results.has_next():
+				for result in results:
+					pKeys.append(result.pId)
+				products = ndb.get_multi(pKeys)
+				for p in products:
+					newP = {}
+					newP['name'] = p.name
+					newP['source'] = p.source
+					newP['url'] = p.url
+					newP['img'] = p.img
+					newP['description'] = p.description
+					newP['price'] = p.price
+					newP['currency'] = p.currency
+					newP['sex'] = p.sex
+					newP['sCat'] = p.sCat
+					newP['rating'] = p.rating
+					pList.append(newP)
+
+				template_values = {'pList':pList,'user':user}
+				self.render_response('wishList.html',**template_values)
+			else:
+				self.response.write("Hello! The wishlist you're visiting is empty!")
+		except StopIteration:
+			self.response.write('No users found')
+
+class home(authHandler):
+	def get(self):
+		template_values = {}
+		self.render_response('index.html', **template_values)
+
 application = webapp2.WSGIApplication([
 	('/get/products',getShoes),
 	('/get/catList',getCat),
@@ -368,7 +426,10 @@ application = webapp2.WSGIApplication([
 	('/admin/addShoe', setup.addShoe),
 	('/admin/update/cat',setup.updateCat),
 	('/admin/update/cat/task',setup.updateCatTask),
-	('/admin/update/deleteAll',setup.deleteAll)],
+	('/admin/update/topShoes',setup.updatetopShoes),
+	('/admin/update/deleteAll',setup.deleteAll),
+	('/u/(.*)', getWishlist),
+	('/', home)],
 	debug=True)
 
 def main():

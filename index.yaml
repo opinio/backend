@@ -12,6 +12,21 @@ indexes:
 
 - kind: shoes2
   properties:
+  - name: color
+  - name: sCat
+  - name: sex
+  - name: rating
+    direction: desc
+
+- kind: shoes2
+  properties:
+  - name: color
+  - name: sex
+  - name: rating
+    direction: desc
+
+- kind: shoes2
+  properties:
   - name: sCat
   - name: sex
   - name: rating

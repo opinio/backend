@@ -70,6 +70,10 @@ class getShoes(authHandler):
 			minPrice = None
 			maxPrice = None
 			sex = [True,False][sex=="f"]
+			try:
+				version = data['version']
+			except KeyError:
+				version = None
 
 			try:
 				color = data['color'].lower()
@@ -151,7 +155,8 @@ class getShoes(authHandler):
 					taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':pKey, 'act':'sent'})
 					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount)})
 				except StopIteration:
-					obj = {'status':'failed','error':'ran out of products to show'}
+					#obj = {'status':'failed','error':'ran out of products to show'}
+					obj = []
 					if queryCursor:
 						newCursor = queryCursor.to_websafe_string()
 					break
@@ -176,7 +181,13 @@ class getShoes(authHandler):
 			raise
 			
 		self.response.headers['Content-Type'] = 'application/json'
-		self.response.out.write(json.dumps(obj))
+		if version:
+			newStyle = {}
+			newStyle['status']="ok"
+			newStyle['products'] = obj
+			self.response.out.write(json.dumps(newStyle))
+		else:
+			self.response.write(json.dumps(obj))
 
 class getCat(authHandler):
 	def get(self):
@@ -370,6 +381,9 @@ class newUser(authHandler):
 
 class getWishlist(authHandler):
 	def get(self,fId):
+
+		uuId = fId
+
 		fId = int(fId)
 		getUser = userData.query()
 		getUser = getUser.filter(userData.fId==fId)
@@ -409,6 +423,32 @@ class getWishlist(authHandler):
 		except StopIteration:
 			self.response.write('No users found')
 
+class getTopShoes(authHandler):
+	def get(self,num):
+		getShoes = shoes2.query()
+		getShoes = getShoes.order(-shoes2.rating)
+
+		products = getShoes.iter(limit=int(num))
+		pList = []
+		user = {'name':'Top '+num+' Shoes'}
+		for p in products:
+			newP = {}
+			newP['name'] = p.name
+			newP['source'] = p.source
+			newP['url'] = p.url
+			newP['img'] = p.img
+			newP['description'] = p.description
+			newP['price'] = p.price
+			newP['currency'] = p.currency
+			newP['sex'] = p.sex
+			newP['sCat'] = p.sCat
+			newP['rating'] = p.rating
+			pList.append(newP)
+
+		template_values = {'pList':pList,'user':user}
+		self.render_response('wishList.html',**template_values)
+
+
 class home(authHandler):
 	def get(self):
 		template_values = {}
@@ -429,6 +469,7 @@ application = webapp2.WSGIApplication([
 	('/admin/update/topShoes',setup.updatetopShoes),
 	('/admin/update/deleteAll',setup.deleteAll),
 	('/u/(.*)', getWishlist),
+	('/blog/top/(.*)',getTopShoes),
 	('/', home)],
 	debug=True)
 

@@ -1,6 +1,6 @@
-#application: sfbackend
-application: sfstage
-version: 1
+application: sfbackend
+#application: sfstage
+version: 2
 runtime: python27
 api_version: 1
 threadsafe: false

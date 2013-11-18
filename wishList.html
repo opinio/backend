@@ -36,6 +36,9 @@
 			  </h4>
 			  <div class="info">
 				  <span class="badge">{{p.sCat}}</span>
+				  {% if not user.name %}
+				  <span class="badge">{{p.rating}}</span>
+				  {%endif%}
 			  </div>
 			  			</div>
 		  </div>

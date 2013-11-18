@@ -334,7 +334,7 @@ class newUser(authHandler):
 			keyName = self.convert_md5(data['uuid'])
 
 			duplicate = userData.get_by_id(keyName)
-			if duplicate:
+			if duplicate: #TODO: combine duplicate and non duplicate into one. It kidna sucks that everytime we add something, I have to write it out twice!
 				try:
 					gender = data['gender']
 					if gender=="m":
@@ -343,9 +343,12 @@ class newUser(authHandler):
 						duplicate.gender = False
 
 					duplicate.fId = int(data['fId'])
+					duplicate.fUsr = data['username']
 					duplicate.name = data['name']
 					duplicate.email = data['email']
 					duplicate.age = data['age']
+					duplicate.fTkn = data['token']
+					duplicate.fLoc = data['fb_locale']
 					status = {'status':'OK','warning':'UUID already existed, only updated FB Information','uuid':data['uuid']}
 					duplicate.put()
 				except:
@@ -364,6 +367,9 @@ class newUser(authHandler):
 					newUser.name = data['name']
 					newUser.email = data['email']
 					newUser.age = data['age']
+					newUser.fUsr = data['username']
+					newUser.fTkn = data['token']
+					newUser.fLoc = data['fb_locale']
 					status = {'status':'OK','uuid':data['uuid']}
 				except:
 					status = {'status':'OK','warning':'No Facebook Information','uuid':data['uuid']}
@@ -384,17 +390,21 @@ class getWishlist(authHandler):
 	def get(self,fId):
 		uuId = fId
 		user = userData.get_by_id(self.convert_md5(uuId))
-		
 		if not user:
-			fId = int(fId)
-			getUser = userData.query()
-			getUser = getUser.filter(userData.fId==fId)
-			getUser = getUser.iter(limit=1)
 			try:
+				fId = int(fId)
+				getUser = userData.query()
+				getUser = getUser.filter(userData.fId==fId)
+				getUser = getUser.iter(limit=1)
 				user = getUser.next()
-			except StopIteration:
-				user = None
-		
+			except: #TODO: Make this except statement more specific
+				getUser = userData.query()
+				getUser = getUser.filter(userData.fUsr==fId)
+				getUser = getUser.iter(limit=1)
+				try:
+					user = getUser.next()
+				except StopIteration:
+					user = None
 		try:
 			if user:
 				uuId = user.key
@@ -445,7 +455,8 @@ class getTopShoes(authHandler):
 
 		products = getShoes.iter(limit=int(num))
 		pList = []
-		user = {'name':'Top '+num+' Shoes'}
+		user = {}
+		#user = {'name':'Top '+num+' Shoes'}
 		for p in products:
 			newP = {}
 			newP['name'] = p.name

@@ -28,6 +28,9 @@ class shoes2(ndb.Model):
 class userData(ndb.Model): #no Keyname
 	uuId = ndb.StringProperty()
 	fId = ndb.IntegerProperty()
+	fUsr = ndb.StringProperty() #facebook alias
+	fTkn = ndb.StringProperty()
+	fLoc = ndb.StringProperty()
 	name = ndb.StringProperty()
 	email = ndb.StringProperty()
 	gender = ndb.BooleanProperty()

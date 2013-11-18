@@ -1,6 +1,5 @@
 #!/usr/bin/python
 #hello
-
 import os
 import webapp2
 import jinja2
@@ -135,7 +134,12 @@ class getShoes(authHandler):
 				try:
 					result = results.next()
 					pUrl = result.url
-					pName = result.name.split(" - ")[0]
+					if version:
+						pName = result.name.split(" - ")[0].capitalize()+"\n"+result.sCat+u"\n£"+str(result.price)
+						pName = pName.encode('cp1252') #TODO: have more elegant solution
+					else:
+						pName = result.name.split(" - ")[0].capitalize()
+					pName = pName.replace(' boots on shoescribe.com','')
 					pImg = result.img
 					pKey = str(result.key.urlsafe())
 					pPrice = result.price

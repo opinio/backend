@@ -63,6 +63,8 @@ class addDafiti(webapp2.RequestHandler):
 		self.response.write("<br />shoes: "+str(k))
 			#for a in root.iter('categ'):
 			#	print a.text
+	def post(self):
+		pass
 
 
 class addShoeTask(webapp2.RequestHandler):

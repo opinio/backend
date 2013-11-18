@@ -135,7 +135,7 @@ class getShoes(authHandler):
 				try:
 					result = results.next()
 					pUrl = result.url
-					pName = result.name
+					pName = result.name.split(" - ")[0]
 					pImg = result.img
 					pKey = str(result.key.urlsafe())
 					pPrice = result.price
@@ -468,6 +468,7 @@ application = webapp2.WSGIApplication([
 	('/admin/update/cat/task',setup.updateCatTask),
 	('/admin/update/topShoes',setup.updatetopShoes),
 	('/admin/update/deleteAll',setup.deleteAll),
+	('/admin/addDafiti',setup.addDafiti),
 	('/u/(.*)', getWishlist),
 	('/blog/top/(.*)',getTopShoes),
 	('/', home)],

@@ -9,7 +9,7 @@ libraries:
 - name: jinja2                                                                  
   version: latest                                                               
 - name: markupsafe                                                              
-  version: latest  
+  version: latest
 
 ## Uncomment to enable App Engine appstats
 # builtins:
@@ -35,7 +35,7 @@ handlers:
 - url: /images
   static_dir: images
 
-- url: /admin/.*
+- url: /admin/*
   script: main.py
 # login: admin
 

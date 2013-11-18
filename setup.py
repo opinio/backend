@@ -5,6 +5,65 @@ from google.appengine.api import urlfetch
 from google.appengine.api import taskqueue
 import logging
 from model import *
+from xml.dom.minidom import parseString
+#from httplib3
+import socket
+import xml.etree.cElementTree as etree
+
+class addDafiti(webapp2.RequestHandler):
+	def get(self):
+		#url = "http://www.integracaoafiliados.com.br/xml/dafiti/?tipo=geral&id_afiliado=stylect"
+		#h = httplib3.Http()
+		#resp, content = h.request(url, "GET")
+		#self.response.write(resp)
+		
+		#url = ""
+		#result = urlfetch.fetch(url,deadline=999).content
+		#response = parseString(result)
+		#self.response.write(result)
+
+		#shoeData = open('data/dafiti_test.xml','rb')
+		#shoeData = shoeData.read()
+		#self.response.write(shoeData)
+		#output = StringIO.StringIO(shoeData)
+
+		#response = parseString(shoeData)
+
+		#print response.documentElement
+
+		#shoeData = StringIO.StringIO(shoeData)
+
+		with open('data/dafiti.xml','rb') as xml_file:
+			tree = etree.parse(xml_file)
+			root = tree.getroot()
+			i = 0
+			k = 0
+			
+			for product in root:
+				i = i+1
+				category = product[8].text
+				categories = category.split(' / ')
+				if 'calcados' in categories and 'feminino' in categories and 'baby' not in categories and 'kids' not in categories and 'teens' not in categories and 'tenis' not in categories:
+					k = k+1
+					description = product[0].text
+					details = product[1].text
+					prevPrice = product[2].text
+					price = product[3].text
+					pId = product[4].text
+					brand = product[5].text
+					url = product[6].text.replace('<![CDATA[','').replace(']]>','')
+					img = product[7].text
+					category = categories[1]
+					payments = product[8].text
+					color = description.split(' ')[-1]
+
+					self.response.write('<a href="'+url+'">'+category+'</a>')
+					self.response.write("<br /><br />")
+		self.response.write("total: "+str(i))
+		self.response.write("<br />shoes: "+str(k))
+			#for a in root.iter('categ'):
+			#	print a.text
+
 
 class addShoeTask(webapp2.RequestHandler):
 	def get(self):

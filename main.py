@@ -144,6 +144,7 @@ class getShoes(authHandler):
 					pSource = str(result.source)
 					pColor = str(result.color)
 					pCat = str(result.sCat)
+					pRating = str(result.rating)
 					newCursor = results.cursor_after().to_websafe_string()
 					keyName = self.convert_md5(uuid+pKey)
 
@@ -153,7 +154,7 @@ class getShoes(authHandler):
 						continue
 
 					taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':pKey, 'act':'sent'})
-					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount)})
+					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount),'rating':str(pRating)})
 				except StopIteration:
 					#obj = {'status':'failed','error':'ran out of products to show'}
 					obj = []
@@ -381,47 +382,61 @@ class newUser(authHandler):
 
 class getWishlist(authHandler):
 	def get(self,fId):
-
 		uuId = fId
-
-		fId = int(fId)
-		getUser = userData.query()
-		getUser = getUser.filter(userData.fId==fId)
-		getUser = getUser.iter(limit=1)
+		user = userData.get_by_id(self.convert_md5(uuId))
+		
+		if not user:
+			fId = int(fId)
+			getUser = userData.query()
+			getUser = getUser.filter(userData.fId==fId)
+			getUser = getUser.iter(limit=1)
+			try:
+				user = getUser.next()
+			except StopIteration:
+				user = None
 		
 		try:
-			user = getUser.next()
-			uuId = user.key
-			getLikes = responses.query()
-			getLikes = getLikes.filter(responses.uuId==uuId)
-			getLikes = getLikes.filter(responses.act=="like")
-			results = getLikes.iter()
-			pKeys = []
-			pList = []
-			if results.has_next():
-				for result in results:
-					pKeys.append(result.pId)
-				products = ndb.get_multi(pKeys)
-				for p in products:
-					newP = {}
-					newP['name'] = p.name
-					newP['source'] = p.source
-					newP['url'] = p.url
-					newP['img'] = p.img
-					newP['description'] = p.description
-					newP['price'] = p.price
-					newP['currency'] = p.currency
-					newP['sex'] = p.sex
-					newP['sCat'] = p.sCat
-					newP['rating'] = p.rating
-					pList.append(newP)
+			if user:
+				uuId = user.key
+				getLikes = responses.query()
+				getLikes = getLikes.filter(responses.uuId==uuId)
+				getLikes = getLikes.filter(responses.act=="like")
+				results = getLikes.iter()
+				pKeys = []
+				pList = []
+				if results.has_next():
+					for result in results:
+						pKeys.append(result.pId)
+					products = ndb.get_multi(pKeys)
+					for p in products:
+						newP = {}
+						newP['name'] = p.name
+						newP['source'] = p.source
+						newP['url'] = p.url
+						newP['img'] = p.img
+						newP['description'] = p.description
+						newP['price'] = p.price
+						newP['currency'] = p.currency
+						newP['sex'] = p.sex
+						newP['sCat'] = p.sCat
+						newP['rating'] = p.rating
+						pList.append(newP)
 
-				template_values = {'pList':pList,'user':user}
-				self.render_response('wishList.html',**template_values)
+					template_values = {'pList':pList,'user':user}
+					self.render_response('wishList.html',**template_values)
 			else:
 				self.response.write("Hello! The wishlist you're visiting is empty!")
 		except StopIteration:
 			self.response.write('No users found')
+
+class getProduct(authHandler):
+	def get(self,pKey):
+		uuId = self.request.get('u')
+		product = ndb.Key(urlsafe=pKey).get()
+
+		if product:
+			self.response.write("<h1>"+product.name.split(" / ")[0]+"</h1>")
+			self.response.write("<img src='"+product.img+"' />")
 
 class getTopShoes(authHandler):
 	def get(self,num):
@@ -471,6 +486,7 @@ application = webapp2.WSGIApplication([
 	('/admin/addDafiti',setup.addDafiti),
 	('/u/(.*)', getWishlist),
 	('/blog/top/(.*)',getTopShoes),
+	('/p/(.*)', getProduct),
 	('/', home)],
 	debug=True)
 

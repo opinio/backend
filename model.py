@@ -1,4 +1,6 @@
 from google.appengine.ext import ndb
+import logging
+
 class shoes2(ndb.Model):
 	source = ndb.StringProperty()
 	name = ndb.StringProperty()
@@ -45,3 +47,19 @@ class responses(ndb.Model):
 	uuId = ndb.KeyProperty(kind=userData)
 	act = ndb.StringProperty()
 	date = ndb.DateTimeProperty(auto_now_add=True)
+	
+	#Rummble Labs Integration
+	def _post_put_hook(self, future):
+		from google.appengine.api import urlfetch
+		try:
+			if self.act=="like" or self.act=="dislike":
+				uKey = str(self.uuId.urlsafe())
+				pKey = str(self.pId.urlsafe())
+				type = [1,2][self.act=="dislike"]
+
+				lUrl = "http://api.rummblelabs.com/js/action/new?consumer_key=kux4aesu4aip6coo4UiZ&type=1&user="+uKey+"&item="+pKey+"&jsonpCallback="
+				dUrl = "http://api.rummblelabs.com/js/action/new?consumer_key=kux4aesu4aip6coo4UiZ&type=2&user="+uKey+"&item="+pKey+"&jsonpCallback="	
+				url = [lUrl,dUrl][self.act=="dislike"]
+				response = urlfetch.fetch(url)
+		except:
+			logging.warning("Was not able to send to rummble labs!")

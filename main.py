@@ -23,12 +23,6 @@ config['webapp2_extras.jinja2'] = {
 }
 
 
-#This could be used to make urllib2 work with urlfetch with timeout limits in the future
-#old_fetch = urlfetch.fetch
-#def new_fetch(url, payload=None, method="GET", headers={},allow_truncated=False, follow_redirects=True,deadline=60.0, *args, **kwargs):
-#	return old_fetch(url, payload, method, headers, allow_truncated,follow_redirects, deadline, *args, **kwargs)
-#urlfetch.fetch = new_fetch
-
 jinja_environment = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
 
 class authHandler(webapp2.RequestHandler):
@@ -134,12 +128,16 @@ class getShoes(authHandler):
 				try:
 					result = results.next()
 					pUrl = result.url
+
+					#TODO: Really sloppy way of managing productNames. In version 3, the frontend may be sorting it out by itself.
 					if version:
 						pName = result.name.split(" - ")[0].capitalize()+"\n"+result.sCat+u"\n£"+str(result.price)
 						pName = pName.encode('cp1252') #TODO: have more elegant solution
 					else:
 						pName = result.name.split(" - ")[0].capitalize()
 					pName = pName.replace(' boots on shoescribe.com','')
+					pName = pName.replace('NA','')
+					#-------------------------------------------------------------------------------------------------------------
 					pImg = result.img
 					pKey = str(result.key.urlsafe())
 					pPrice = result.price
@@ -158,7 +156,7 @@ class getShoes(authHandler):
 						continue
 
 					taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':pKey, 'act':'sent'})
-					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount),'rating':str(pRating)})
+					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount),'globalRating':str(pRating)})
 				except StopIteration:
 					#obj = {'status':'failed','error':'ran out of products to show'}
 					obj = []
@@ -204,10 +202,6 @@ class getCat(authHandler):
 		self.response.out.write(json.dumps(categories))
 
 class pushAction(authHandler): #Manages updates of likes/dislikes
-	def get(self):
-		template_values = {}
-		self.render_response('actDemo.html', **template_values)
-
 	def post(self):
 		data = self.request.body
 		status = {}
@@ -500,7 +494,7 @@ application = webapp2.WSGIApplication([
 	('/admin/update/deleteAll',setup.deleteAll),
 	('/admin/addDafiti',setup.addDafiti),
 	('/u/(.*)', getWishlist),
-	('/blog/top/(.*)',getTopShoes),
+	('/top/(.*)',getTopShoes),
 	('/p/(.*)', getProduct),
 	('/', home)],
 	debug=True)

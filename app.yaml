@@ -12,11 +12,10 @@ libraries:
   version: latest
 
 ## Uncomment to enable App Engine appstats
-# builtins:
-# - appstats: on
+builtins:
+- appstats: on
 
 handlers:
-
 - url: /.*favicon.ico
   static_files: img/favicon.ico
   upload: img/favicon.ico
@@ -35,9 +34,9 @@ handlers:
 - url: /images
   static_dir: images
 
-- url: /admin/*
+- url: /admin/.*
   script: main.py
-# login: admin
+#  login: admin
 
 - url: /.*
   script: main.py

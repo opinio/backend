@@ -2,26 +2,46 @@ from google.appengine.ext import ndb
 import logging
 
 class shoes2(ndb.Model):
+#class shoes2(ndb.Expando):
 	source = ndb.StringProperty()
 	name = ndb.StringProperty()
-	url = ndb.TextProperty()
-	img = ndb.StringProperty()
-	description = ndb.TextProperty()
 	price = ndb.FloatProperty()
+	priceCat = ndb.IntegerProperty()
 	currency = ndb.StringProperty()
-	sCat = ndb.StringProperty()
 	color = ndb.StringProperty()
 	sex = ndb.BooleanProperty() #men = 1, women = 0
 	srank = ndb.IntegerProperty()
-	rating = ndb.IntegerProperty()
-	
+	prevPrice = ndb.FloatProperty()
+
+
+
+	#toChange
+	#pId = ndb.IntegerProperty() #will help us get uniqueness across yoox dataset
+	#sCat = ndb.StringProperty()
+	#rating = ndb.IntegerProperty()
+	#url = ndb.TextProperty()
+	#img = ndb.StringProperty()
+	#description = ndb.TextProperty()
+
+	#Changed Versions
+	pId = ndb.StringProperty()
+	sCat = ndb.StringProperty(repeated=True)
+	rating = ndb.FloatProperty()
+	url = ndb.TextProperty(indexed=False)
+	img = ndb.StringProperty(indexed=False)
+	description = ndb.TextProperty(indexed=False)
+	country = ndb.StringProperty()
+
+
+	#newProperties
+	likes = ndb.IntegerProperty()
+	dislikes = ndb.IntegerProperty()
+
 	#yoox quirky stuff saved just to be safe
-	pId = ndb.IntegerProperty() #will help us get uniqueness across yoox dataset
 	catId = ndb.IntegerProperty() 
 	catName = ndb.StringProperty()
 	mcatName = ndb.StringProperty()
 	sku = ndb.StringProperty()
-	prevPrice = ndb.FloatProperty()
 	inStock = ndb.BooleanProperty()
 	sizes = ndb.StringProperty(repeated=True)
 	mColor = ndb.StringProperty()

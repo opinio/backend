@@ -12,6 +12,7 @@ import json
 import datetime
 import setup
 import internal
+import cloudstorage as gcs
 
 config = {}
 config['webapp2_extras.jinja2'] = {
@@ -46,7 +47,8 @@ class getShoes(authHandler):
 	
 		#config
 		defaultRequests = 2
-		defaultFetch = 500
+		defaultFetchC = 500
+		defaultFetch = 100
 		status = {}
 
 		data = self.request.body
@@ -54,10 +56,30 @@ class getShoes(authHandler):
 		#Time to parse the data we got, see if it's legit.
 		try:
 			data = json.loads(data)
+			try:
+					#TODO: Needs to be seriously refactored
+				try:
+					country = data['country']
+				except:
+					country = ""
+
+				if country == "":
+					ip = self.request.remote_addr
+					country = json.loads(urlfetch.fetch('http://www.geoplugin.net/json.gp?ip='+ip,deadline=999).content)['geoplugin_countryName']
+					if country=="":
+						logging.warning(ip)
+						country = "None"
+			except Exception, e:
+				logging.error(e)
+				country = "None"
+
 			uuid = data['uuid']
 			getUser = userData.get_by_id(self.convert_md5(uuid))
 			sex = data['sex']
-			cat = data['cat']
+			try:
+				cat = data['cat']
+			except KeyError:
+				cat = 'all'
 			product = ""
 			product = data['type'] #irrelevant for now and ignored in the code, but futureproofing stuff
 			minPrice = None
@@ -73,6 +95,11 @@ class getShoes(authHandler):
 			except KeyError:
 				color = None
 
+			try:
+				priceCat = int(data['priceCategory'])
+			except:
+				priceCat = 0
+
 			#minPrice = data['minPrice']
 			#maxPrice = data['maxPrice']
 			
@@ -80,10 +107,10 @@ class getShoes(authHandler):
 				responseReq = int(data['num'])
 			except:
 				responseReq = defaultRequests
+
 			#Create a new user if he/she doesn't exist yet
-			uuidKeyName = self.convert_md5(data['uuid'])	
-			userExists = userData.get_by_id(uuidKeyName)
-			if userExists:
+			uuidKeyName = self.convert_md5(data['uuid']) 
+			if getUser:
 				pass
 			else:
 				newUser = userData(id=uuidKeyName)
@@ -91,7 +118,7 @@ class getShoes(authHandler):
 				newUser.put()
 			
 			#load cursor and cursor name--TODO: OPTIMIZE AND MAKE IT A NEW MODULE
-			cursorName = '-'.join([str(sex),str(cat),str(product),str(color),str(minPrice),str(maxPrice),'sortByRating']) 
+			cursorName = '-'.join([str(sex),str(cat),str(product),str(color),str(minPrice),str(maxPrice),str(country),str(priceCat),'sortByRating']) 
 			queryCursor = None
 			try:
 				cursorList = getUser.cursors
@@ -108,10 +135,17 @@ class getShoes(authHandler):
 			getShoes = getShoes.filter(shoes2.sex==sex)
 			getShoes = [getShoes.filter(shoes2.color==color),getShoes][color==None or color=="all"]
 			getShoes = [getShoes.filter(shoes2.sCat==cat),getShoes][cat=="all"]
+			getShoes = [getShoes.filter(shoes2.priceCat==priceCat),getShoes][priceCat==0]
+
+			if country=="Brazil":
+				getShoes = getShoes.filter(shoes2.currency=="BRL")
+			else:
+				getShoes = getShoes.filter(shoes2.currency=="GBP")
+			
 			getShoes = getShoes.order(-shoes2.rating)
 
 			if queryCursor:
-				results = getShoes.iter(produce_cursors=True,limit=defaultFetch,start_cursor=queryCursor)
+				results = getShoes.iter(produce_cursors=True,limit=defaultFetchC,start_cursor=queryCursor)
 			else:	
 				results = getShoes.iter(produce_cursors=True, limit=defaultFetch)
 			
@@ -131,11 +165,11 @@ class getShoes(authHandler):
 
 					#TODO: Really sloppy way of managing productNames. In version 3, the frontend may be sorting it out by itself.
 					if version:
-						pName = result.name.split(" - ")[0].capitalize()+"\n"+result.sCat+u"\n£"+str(result.price)
+						pName = result.name.split(" - ")[0].title()+"\n"+str(result.sCat[-1])+u"\n£"+str(result.price)
 						pName = pName.encode('cp1252') #TODO: have more elegant solution
 					else:
-						pName = result.name.split(" - ")[0].capitalize()
-					pName = pName.replace(' boots on shoescribe.com','')
+						pName = result.name.split(" - ")[0].title()
+					pName = pName.replace('Boots  On Shoescribe.Com','')
 					pName = pName.replace('NA','')
 					#-------------------------------------------------------------------------------------------------------------
 					pImg = result.img
@@ -145,21 +179,20 @@ class getShoes(authHandler):
 					pDiscount = int(((pPrevPrice-pPrice)/pPrevPrice)*100)
 					pSource = str(result.source)
 					pColor = str(result.color)
-					pCat = str(result.sCat)
+					pCat = str(result.sCat[-1])
 					pRating = str(result.rating)
 					newCursor = results.cursor_after().to_websafe_string()
 					keyName = self.convert_md5(uuid+pKey)
 
-					showDiscount = [False,True][pDiscount>=50]
+					showDiscount = [False,True][pDiscount>=40]
 					
-					if responses.get_by_id(keyName): #if duplicate, skip adding it and don't increase I by one
-						continue
+					#if responses.get_by_id(keyName): #if duplicate, skip adding it and don't increase I by one
+					#	continue
 
 					taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':pKey, 'act':'sent'})
-					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount),'globalRating':str(pRating)})
+					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount),'globalRating':str(pRating),'country':country})
 				except StopIteration:
 					#obj = {'status':'failed','error':'ran out of products to show'}
-					obj = []
 					if queryCursor:
 						newCursor = queryCursor.to_websafe_string()
 					break
@@ -262,7 +295,7 @@ class queueAction(authHandler):
 				sentProduct.pId = ndb.Key(urlsafe=pKey)
 				sentProduct.act = actionType
 				sentProduct.put()
-		elif actionType=='like' or actionType=='dislike':
+		elif actionType=='like' or actionType=='dislike':#TODO: Add code that stops duplicates from same user (low risk, so left alone for now--all i need to do is tab in a few lines to fix this!)
 			#if they responded back, we need to load the sent product and then update it to a like or a dislike
 			updateAct = responses.get_by_id(keyName) #check if duplicate before storing
 			if updateAct:
@@ -282,8 +315,10 @@ class queueAction(authHandler):
 				delta = 0
 				if actionType=="like":
 					delta = 1
+					updatePrd.likes = updatePrd.likes+1
 				elif actionType=="dislike":
-					delta = -1
+					delta = -0.3
+					updatePrd.dislikes = updatePrd.dislikes+1
 
 				if not updatePrd.rating:
 					updatePrd.rating = 0
@@ -390,14 +425,13 @@ class getWishlist(authHandler):
 		user = userData.get_by_id(self.convert_md5(uuId))
 		if not user:
 			try:
-				fId = int(fId)
 				getUser = userData.query()
-				getUser = getUser.filter(userData.fId==fId)
+				getUser = getUser.filter(userData.fId==int(fId))
 				getUser = getUser.iter(limit=1)
 				user = getUser.next()
 			except: #TODO: Make this except statement more specific
 				getUser = userData.query()
-				getUser = getUser.filter(userData.fUsr==fId)
+				getUser = getUser.filter(userData.fUsr==fId) #expects string error
 				getUser = getUser.iter(limit=1)
 				try:
 					user = getUser.next()
@@ -432,8 +466,10 @@ class getWishlist(authHandler):
 
 					template_values = {'pList':pList,'user':user}
 					self.render_response('wishList.html',**template_values)
+				else:
+					self.response.write("Hello! The wishtlist you're visiting is empty!")
 			else:
-				self.response.write("Hello! The wishlist you're visiting is empty!")
+				self.response.write("Hello! The user you're trying to find does not exist!")
 		except StopIteration:
 			self.response.write('No users found')
 
@@ -493,6 +529,7 @@ application = webapp2.WSGIApplication([
 	('/admin/update/topShoes',setup.updatetopShoes),
 	('/admin/update/deleteAll',setup.deleteAll),
 	('/admin/addDafiti',setup.addDafiti),
+	('/admin/fix',setup.fix),
 	('/u/(.*)', getWishlist),
 	('/top/(.*)',getTopShoes),
 	('/p/(.*)', getProduct),

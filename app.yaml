@@ -1,6 +1,6 @@
 application: sfbackend
 #application: sfstage
-version: 3
+version: 5
 runtime: python27
 api_version: 1
 threadsafe: false
@@ -11,7 +11,7 @@ libraries:
 - name: markupsafe                                                              
   version: latest
 
-## Uncomment to enable App Engine appstats
+# Uncomment to enable App Engine appstats
 builtins:
 - appstats: on
 
@@ -36,7 +36,7 @@ handlers:
 
 - url: /admin/.*
   script: main.py
-#  login: admin
+  login: admin
 
 - url: /.*
   script: main.py

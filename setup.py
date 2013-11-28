@@ -10,7 +10,234 @@ from xml.dom.minidom import parseString
 import socket
 import xml.etree.cElementTree as etree
 
+import os
+import cloudstorage as gcs
+import sys, traceback
+
+# Retry can help overcome transient urlfetch or GCS issues, such as timeouts.
+my_default_retry_params = gcs.RetryParams(initial_delay=0.2,
+                                          max_delay=5.0,
+                                          backoff_factor=2,
+                                          max_retry_period=15)
+# All requests to GCS using the GCS client within current GAE request and
+# current thread will use this retry params as default. If a default is not
+# set via this mechanism, the library's built-in default will be used.
+# Any GCS client function can also be given a more specific retry params
+# that overrides the default.
+# Note: the built-in default is good enough for most cases. We override
+# retry_params here only for demo purposes.
+gcs.set_default_retry_params(my_default_retry_params)
+
+BUCKET = '/dafiti'
+
+
 class addDafiti(webapp2.RequestHandler):
+	def get(self):
+		catMapping = {
+		'alpargatas':'Flats',
+		'anabela':'Heels',
+		'ankle boot':'Boots',
+		'botas':'Boots',
+		'peep toe':'Heels',
+		'rasteiras':'Sandals',
+		'sandalias':'Sandals',
+		'sapatilhas':'Flats',
+		'scarpins':'Heels'
+		}
+
+		colorMapping = {
+		'Amarela':'yellow',
+		'Amarelo':'yellow',
+		'Azul':'blue',
+		'Bege':'brown',
+		'Branca':'white',
+		'Branco':'white',
+		'Bronze':'brown',
+		'Canela':'brown',
+		'Caramelo':'brown',
+		'Cinza':'grey',
+		'Dourada':'yellow',
+		'Dourado':'yellow',
+		'Laranja':'yellow',
+		'Marrom':'brown',
+		'Off-White':'grey',
+		'Prata':'grey',
+		'Preta':'black',
+		'Preto':'black',
+		'Rosa':'pink',
+		'Roxa':'purple',
+		'Roxo':'purple',
+		'Verde':'green',
+		'Vermelha':'red',
+		'Vermelho':'red',
+		'White':'white'
+		}
+
+		#Real Backend:
+		filename = '/dafiti/dafiti.xml'
+		#Staging:
+		#filename = '/dafiti1/dafiti.xml'
+
+		i=0
+
+		with gcs.open(filename) as xml_file:
+			tree = etree.parse(xml_file)
+			root = tree.getroot()
+			for product in root:
+				category = product[8].text
+				categories = category.split(' / ')
+				if 'calcados' in categories and 'feminino' in categories and 'baby' not in categories and 'kids' not in categories and 'teens' not in categories and 'tenis' not in categories:
+					description = product[0].text
+					details = product[1].text
+					prevPrice = product[2].text
+					price = product[3].text
+					pId = product[4].text
+					brand = product[5].text
+					url = product[6].text.replace('<![CDATA[','').replace(']]>','')
+					img = product[7].text
+					category = categories[1]
+					payments = product[8].text
+					color = description.split(' ')[-1]
+				
+					if category in catMapping and color in colorMapping:
+						dataLoad = {
+							'details':details,
+							'prevPrice':prevPrice.replace(",","."),
+							'price':price.replace(",","."),
+							'brand':brand,
+							'pId':pId,
+							'url':url,
+							'img':img,
+							'sCat':catMapping[category],
+							'color':colorMapping[color],
+							'mcatName':category,
+							'mColor':color
+						}
+						taskqueue.add(queue_name="addShoes", url="/admin/addDafiti", params=dataLoad,target=taskqueue.DEFAULT_APP_VERSION)
+						i = i+1
+
+			if i>0:
+				self.response.write(i)
+
+			xml_file.close()
+		
+	def post(self):
+		getShoes = shoes2.query()
+		getShoes = getShoes.filter(shoes2.source=="Dafiti")
+		getShoes = getShoes.filter(shoes2.pId==self.request.get('pId'))
+		results = getShoes.iter(limit=1,keys_only=True)
+		if not results.has_next():
+			addNewShoe = shoes2()
+			addNewShoe.source = "Dafiti"
+			addNewShoe.name = unicode(self.request.get('brand'))
+			addNewShoe.url = self.request.get('url')
+			addNewShoe.img = self.request.get('img')
+			addNewShoe.description = self.request.get('details')
+			addNewShoe.price = float(self.request.get('price'))
+			addNewShoe.currency = "BRL"
+			addNewShoe.sCat = [self.request.get('sCat')]
+			addNewShoe.mcatName = self.request.get('mcatName')
+			addNewShoe.color = self.request.get('color') 
+			addNewShoe.sex = False
+			addNewShoe.srank = 0
+			addNewShoe.rating = 0
+			addNewShoe.pId = self.request.get('pId')
+			addNewShoe.prevPrice = float(self.request.get('prevPrice'))
+			addNewShoe.likes = 0
+			addNewShoe.dislikes = 0
+			addNewShoe.catId = 0
+			addNewShoe.sku = ""
+			addNewShoe.inStock = True
+			addNewShoe.sizes = [""]
+			addNewShoe.mColor = self.request.get('mColor')
+			addNewShoe.country = "Brazil"
+			addNewShoe.catName = "Women shoes"
+		
+			if addNewShoe.price<=100:
+				addNewShoe.priceCat = 1
+			elif addNewShoe.price<=200:
+				addNewShoe.priceCat = 2
+			else:
+				addNewShoe.priceCat = 3
+
+			addNewShoe.put()
+		else: #this is where the price update code goes!
+			pass
+				
+		#except Exception,e:
+		#	logging.error(str(e))
+
+class fix(webapp2.RequestHandler):
+	def get(self):
+		cursor = self.request.get('cursor')
+		skip = 2500
+		if cursor == "":
+			cursor = None
+			i = 0
+		else:
+			cursor = ndb.Cursor.from_websafe_string(cursor)
+			i = int(self.request.get('i'))
+
+		getShoes = shoes2.query()
+		
+		if cursor:
+			getShoes = getShoes.iter(produce_cursors=True,limit=skip,start_cursor=cursor)
+		else:
+			getShoes = getShoes.iter(limit=skip,produce_cursors=True)
+		for shoe in getShoes:
+			if not shoe.priceCat:
+				taskqueue.add(queue_name="addShoes", url="/admin/fix", params={'key':str(shoe.key.urlsafe())},target=taskqueue.DEFAULT_APP_VERSION)
+		cursor = getShoes.cursor_after().to_websafe_string()
+		i = i+skip
+		self.redirect('/admin/fix?cursor='+cursor+'&i='+str(i))
+			#break
+
+	def post(self):
+		key = self.request.get('key')
+		shoe = ndb.Key(urlsafe=key).get()
+		if shoe.currency=="GBP":
+			if shoe.price<=60:
+				shoe.priceCat = 1
+			elif shoe.price<=150:
+				shoe.priceCat = 2
+			else:
+				shoe.priceCat = 3
+		
+		elif shoe.currency=="BRL":
+			if shoe.price<=100:
+				shoe.priceCat = 1
+			elif shoe.price<=200:
+				shoe.priceCat = 2
+			else:
+				shoe.priceCat = 3
+
+		shoe.put()
+
+	#	shoe.pId = str(shoe.pId)
+
+		#if type(shoe.sCat).__name__ != "list":
+		#	shoe.sCat = [str(shoe.sCat)]
+		#	if shoe.mcatName == "FOOTWEAR_High-heeled sandals_D":
+		#		shoe.sCat.append("Sandals")
+	#
+	#		#Process Title
+	#		shoe.name = unicode(shoe.name.split(" - ")[0].title())
+	#		shoe.name = unicode(shoe.name.replace(u" on shoescribe.com",u""))
+	#		shoe.name = unicode(shoe.name.replace("Boots Boots",""))
+	#		shoe.name = unicode(shoe.name.replace("Ankle Boots",""))
+	#
+	#		#Add Likes/Dislikes
+	#		shoe.likes = 0
+	#		shoe.dislikes = 0
+	#		shoe.srank = 0
+	#
+	#		#Change shoe rating to float
+	#		shoe.rating = float(shoe.rating)
+	#
+	#		#Save
+	#		shoe.put()
+
+class addDafiti2(webapp2.RequestHandler):
 	def get(self):
 		#url = "http://www.integracaoafiliados.com.br/xml/dafiti/?tipo=geral&id_afiliado=stylect"
 		#h = httplib3.Http()
@@ -57,8 +284,26 @@ class addDafiti(webapp2.RequestHandler):
 					payments = product[8].text
 					color = description.split(' ')[-1]
 
-					self.response.write('<a href="'+url+'">'+category+'</a>')
-					self.response.write("<br /><br />")
+					if category in catMapping:
+						addNewShoe = shoes2()
+						addNewShoe.source = "Dafiti"
+						addNewShoe.name = description
+						addNewShoe.url = url
+						addNewShoe.img = img
+						addNewShoe.description = details
+						addNewShoe.price = float(price)
+						addNewShoe.currency = "BRL"
+						addNewShoe.sCat = catMapping[category]
+						#addNewShoe.color = 
+						addNewShoe.sex = 0
+						addNewShoe.srank = 0
+						addNewShoe.rating = 0
+						addNewShoe.brand = brand
+						addNewShoe.pId = pId
+						addNewShoe.prevPrice = float(prevPrice)
+
+					self.response.write(color+'\n')
+					#self.response.write("<br /><br />")
 		self.response.write("total: "+str(i))
 		self.response.write("<br />shoes: "+str(k))
 			#for a in root.iter('categ'):

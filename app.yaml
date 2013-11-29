@@ -1,5 +1,5 @@
-application: sfbackend
-#application: sfstage
+#application: sfbackend
+application: sfstage
 version: 5
 runtime: python27
 api_version: 1

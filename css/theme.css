@@ -1,7 +1,83 @@
+header{
+}
+
+@media (min-width: 980px) {
+
+	.well{
+		max-height: 400px;
+	}
+
+}
+
+body{
+	background-image: url('/images/wishlist/headBack.png');
+	background-repeat: repeat-x;
+	background-attachment: fixed;
+	background-color: #FAF9FA;
+}
+
+#download{
+	float: right;
+	margin-top: -9px;
+	width: 124px;
+	margin-right: -8px;
+	opacity: .9;
+}
+
+#userName{
+	font-family: "helvetica neue", "myriad-pro";
+	font-size: 28px;
+	font-weight: 100;
+	display: inline-block;
+	vertical-align: middle;
+	padding-left: 8px;
+}
+
+#logo{
+	width: 80px;
+	padding-top: 6px;
+	padding-left: 4px;
+}
+
+.page-header{
+	margin-top: 18px;
+	border: none;
+	padding-top: 4px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid #F7F6F7;
+}
+
+.post img.image{
+}
+
+h1{
+	font-family: "helvetica neue", "myriad-pro";
+	font-weight: 100;
+	color: #FF0000;
+	display: inline-block;
+	font-size: 22px;
+	position: absolute;
+	left: 50%;
+	margin-left: -33px;
+	top: 27px;
+}
+
+#userInfo{
+	padding-bottom: 20px;
+	max-width: 350px;
+	margin: auto;
+	text-align: center;
+}
+
+#userImage img{
+	border-radius: 200px;
+}
+
+
 /* General
 ------------------------------- */
 #page {
-  padding: 18px 0;
+  padding: 0;
 }
 
 /* Hero
@@ -25,7 +101,22 @@ header div.actions .btn-toolbar {
 /* Posts
 ------------------------------- */
 .post h4 {
-  margin-bottom: 9px;
+  margin: 0px;
+  padding-left: 10px;
+  background-color:  #FDFDFD;
+  padding-top: 7px;
+  padding-bottom: 6px;
+
+  font-family: "myriad-pro";
+  font-weight: 400;
+  
+  -webkit-border-bottom-left-radius: 10px;
+  -moz-border-top-bottom-radius: 10px;
+  border-top-bottom-radius: 10px;
+
+  -webkit-border-bottom-right-radius: 10px;
+  -moz-border-bottom-right-radius: 10px;
+  border-bottom-right-radius: 10px;
 }
 
 .post h4 a {
@@ -34,7 +125,18 @@ header div.actions .btn-toolbar {
 
 .post img.image {
   max-width: 100%;
-  margin-top: 9px;
+  margin-top: 0px;
+  border-bottom: 1px solid #EDEDED;
+  -webkit-border-top-left-radius: 10px;
+  -moz-border-top-left-radius: 10px;
+  border-top-left-radius: 10px;
+
+   -webkit-border-top-right-radius: 10px;
+  -moz-border-top-right-radius: 10px;
+  border-top-right-radius: 10px;
+
+
+
 }
 
 /* Isotope Transitions

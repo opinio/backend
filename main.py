@@ -139,8 +139,10 @@ class getShoes(authHandler):
 
 			if country=="Brazil":
 				getShoes = getShoes.filter(shoes2.currency=="BRL")
+				cSymbol = u"R$"
 			else:
 				getShoes = getShoes.filter(shoes2.currency=="GBP")
+				cSymbol = u"\u00A3"
 			
 			getShoes = getShoes.order(-shoes2.rating)
 
@@ -165,8 +167,8 @@ class getShoes(authHandler):
 
 					#TODO: Really sloppy way of managing productNames. In version 3, the frontend may be sorting it out by itself.
 					if version:
-						pName = result.name.split(" - ")[0].title()+"\n"+str(result.sCat[-1])+u"\n£"+str(result.price)
-						pName = pName.encode('cp1252') #TODO: have more elegant solution
+						pName = result.name.split(" - ")[0].title()+"\n"+str(result.sCat[-1])+u"\n"+cSymbol+str(result.price)
+						#pName = pName.encode('cp1252') #TODO: have more elegant solution
 					else:
 						pName = result.name.split(" - ")[0].title()
 					pName = pName.replace('Boots  On Shoescribe.Com','')
@@ -181,6 +183,7 @@ class getShoes(authHandler):
 					pColor = str(result.color)
 					pCat = str(result.sCat[-1])
 					pRating = str(result.rating)
+					pPriceCat = str(result.priceCat)
 					newCursor = results.cursor_after().to_websafe_string()
 					keyName = self.convert_md5(uuid+pKey)
 
@@ -190,7 +193,7 @@ class getShoes(authHandler):
 					#	continue
 
 					taskqueue.add(queue_name="actions", url="/queue/action", params={'uuid':uuid, 'pKey':pKey, 'act':'sent'})
-					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount),'globalRating':str(pRating),'country':country})
+					obj.append({'url':pUrl,'name':pName,'img':pImg, 'key':pKey, 'price':str(pPrice),'source':pSource,'color':pColor,'category':pCat,'discount':str(pDiscount),'showDiscount':str(showDiscount),'globalRating':str(pRating),'country':country,'priceCategory':str(pPriceCat)})
 				except StopIteration:
 					#obj = {'status':'failed','error':'ran out of products to show'}
 					if queryCursor:
@@ -317,7 +320,7 @@ class queueAction(authHandler):
 					delta = 1
 					updatePrd.likes = updatePrd.likes+1
 				elif actionType=="dislike":
-					delta = -0.3
+					delta = -0.15
 					updatePrd.dislikes = updatePrd.dislikes+1
 
 				if not updatePrd.rating:
@@ -384,8 +387,9 @@ class newUser(authHandler):
 					duplicate.fLoc = data['fb_locale']
 					status = {'status':'OK','warning':'UUID already existed, only updated FB Information','uuid':data['uuid']}
 					duplicate.put()
-				except:
+				except Exception, e:
 					status = {'status':'Failed','reason':'It was a duplicate UUID, but then failed in trying to update duplicate FB stuff','uuid':data['uuid']}
+					logging.warning(e)
 			else:
 				newUser = userData(id=keyName)
 				newUser.uuId = data['uuid']

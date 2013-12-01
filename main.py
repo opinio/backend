@@ -47,7 +47,7 @@ class getShoes(authHandler):
 	
 		#config
 		defaultRequests = 2
-		defaultFetchC = 500
+		defaultFetchC = 50
 		defaultFetch = 100
 		status = {}
 
@@ -427,6 +427,10 @@ class getWishlist(authHandler):
 	def get(self,fId):
 		uuId = fId
 		user = userData.get_by_id(self.convert_md5(uuId))
+		inApp = self.request.get('inApp')
+		if inApp!="1":
+			inApp = None
+
 		if not user:
 			try:
 				getUser = userData.query()
@@ -468,7 +472,7 @@ class getWishlist(authHandler):
 						newP['rating'] = p.rating
 						pList.append(newP)
 
-					template_values = {'pList':pList,'user':user}
+					template_values = {'pList':pList,'user':user,'inApp':inApp}
 					self.render_response('wishList.html',**template_values)
 				else:
 					self.response.write("Hello! The wishtlist you're visiting is empty!")

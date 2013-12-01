@@ -6,6 +6,7 @@
 
   <title>Stylect Wishlist</title>
 
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="">
   <meta name="author" content="">
@@ -21,18 +22,18 @@
 <body>
 
 <div id="page" class="container">
-
+  {% if not inApp %}
   <header class="page-header">
 	  <img id="logo" src="/images/wishlist/logo.png" />
-	  <!-- <h1>{% if user.name %}/  {{user.name}}'s Wishlist {%endif%}</h1> -->
 	  <h1>Wishlist</h1>
 	  <a href="https://itunes.apple.com/us/app/stylect/id740871893"><img src="/images/wishlist/appstoreDownload.png" id="download" /></a>
   </header>
   {% if user.fId %}
   	<div id="userInfo">
-		<span id="userImage"><img src="http://graph.facebook.com/{{user.fId}}/picture?width=50"></span>
+		<span id="userImage"><img src="http://graph.facebook.com/{{user.fId}}/picture?width=50&height=50"></span>
 		<span id="userName">{{user.name}}</span>
 	</div>
+  {%endif%}
   {%endif%}
 
   <div id="posts" class="isotope row">

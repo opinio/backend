@@ -476,19 +476,27 @@ class getWishlist(authHandler):
 					self.render_response('wishList.html',**template_values)
 				else:
 					self.response.write("Hello! The wishtlist you're visiting is empty!")
+					logging.warning("empty wishlist error received")
 			else:
 				self.response.write("Hello! The user you're trying to find does not exist!")
+				logging.warning("Wishlist - Didn't find the user!")
 		except StopIteration:
 			self.response.write('No users found')
 
 class getProduct(authHandler):
 	def get(self,pKey):
 		uuId = self.request.get('u')
-		product = ndb.Key(urlsafe=pKey).get()
+		inApp = self.request.get('inApp')
+		if inApp!="1":
+			inApp = None
 
+		product = ndb.Key(urlsafe=pKey).get()
 		if product:
-			self.response.write("<h1>"+product.name.split(" / ")[0]+"</h1>")
-			self.response.write("<img src='"+product.img+"' />")
+			template_values = {'p':product,'inApp':inApp}
+			self.render_response('viewProduct.html',**template_values)
+		else:
+			self.response.write("Oh no! We weren't able to find the product you're looking for :(")
+			logging.warning("product wasn't found")
 
 class getTopShoes(authHandler):
 	def get(self,num):
@@ -516,6 +524,10 @@ class getTopShoes(authHandler):
 		template_values = {'pList':pList,'user':user}
 		self.render_response('wishList.html',**template_values)
 
+class verifyZook(authHandler):
+	def get(self):
+		template_values = {}
+		self.render_response('a1f34bb09bfffaadc60cb84fcc27c786.html',**template_values)
 
 class home(authHandler):
 	def get(self):
@@ -541,6 +553,7 @@ application = webapp2.WSGIApplication([
 	('/u/(.*)', getWishlist),
 	('/top/(.*)',getTopShoes),
 	('/p/(.*)', getProduct),
+	('/a1f34bb09bfffaadc60cb84fcc27c786.html',verifyZook),
 	('/', home)],
 	debug=True)
 

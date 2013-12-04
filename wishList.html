@@ -20,7 +20,6 @@
 </head>
 
 <body>
-
 <div id="page" class="container">
   {% if not inApp %}
   <header class="page-header">
@@ -28,21 +27,23 @@
 	  <h1>Wishlist</h1>
 	  <a href="https://itunes.apple.com/us/app/stylect/id740871893"><img src="/images/wishlist/appstoreDownload.png" id="download" /></a>
   </header>
-  {% if user.fId %}
-  	<div id="userInfo">
-		<span id="userImage"><img src="http://graph.facebook.com/{{user.fId}}/picture?width=50&height=50"></span>
-		<span id="userName">{{user.name}}</span>
-	</div>
-  {%endif%}
+	  {% if user.fId %}
+	  	<div id="userInfo">
+			<span id="userImage"><img src="http://graph.facebook.com/{{user.fId}}/picture?width=50&height=50"></span>
+			<span id="userName">{{user.name}}</span>
+		</div>
+	  {%endif%}
+  {% else %}
+  		<br /><br />
   {%endif%}
 
   <div id="posts" class="isotope row">
 	  {% for p in pList %}
 		  <div id="${id}" class="post item span4">
 			<div class="well">
-			  <img class="image" src="{{p.img}}" />
+				<a href="{{p.url}}" target="_black"><img class="image" src="{{p.img}}" /></a>
 			  <h4>
-				  <a href="{{p.url}}" target="_blank">{{p.name}}</a>
+				  <a href="{{p.url}}" target="_blank">{{p.name}} - {{p.price}} {{p.currency}}</a>
 			  </h4>
 			  <div class="info">
 				  <!-- <span class="badge">{{p.sCat.0}}</span> -->
